@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.33402.96
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "UnitySaveSystemSourceGenerator.Test", "UnitySaveSystemSourceGenerator.Test\UnitySaveSystemSourceGenerator.Test.csproj", "{04F2BC96-0F9B-4BDF-B4D8-4B84EFD8D138}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "UnitySaveSystemSourceGenerator", "UnitySaveSystemSourceGenerator\UnitySaveSystemSourceGenerator.csproj", "{9FCDD7D1-6EC0-487F-894A-9CFA1B8DD6ED}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{04F2BC96-0F9B-4BDF-B4D8-4B84EFD8D138}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{04F2BC96-0F9B-4BDF-B4D8-4B84EFD8D138}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{04F2BC96-0F9B-4BDF-B4D8-4B84EFD8D138}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{04F2BC96-0F9B-4BDF-B4D8-4B84EFD8D138}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9FCDD7D1-6EC0-487F-894A-9CFA1B8DD6ED}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9FCDD7D1-6EC0-487F-894A-9CFA1B8DD6ED}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9FCDD7D1-6EC0-487F-894A-9CFA1B8DD6ED}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9FCDD7D1-6EC0-487F-894A-9CFA1B8DD6ED}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {E02EA651-A6B0-4ED7-AC46-9586DBAFE51A}
+	EndGlobalSection
+EndGlobal
