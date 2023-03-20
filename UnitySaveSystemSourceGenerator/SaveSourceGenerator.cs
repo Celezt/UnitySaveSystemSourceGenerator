@@ -6,17 +6,18 @@ using System.Diagnostics;
 using System.IO;
 using System.Text;
 
-namespace Celezt.SaveSystem
+namespace Celezt.SaveSystem.Generation
 {
 	[Generator]
 	public class SaveSourceGenerator : ISourceGenerator
 	{
 		public void Execute(GeneratorExecutionContext context)
 		{
+			var receiver = (MainSyntaxReceiver)context.SyntaxReceiver;
 			var output = @"
 public class Test 
 {
-	public static void P() => Console.WriteLine(""Hello Code Generation!"");
+	public static void P() => Console.WriteLine(""Hello Code Generation! How are you?"");
 }
 ";
 			context.AddSource("hello.g.cs", output);
@@ -24,20 +25,25 @@ public class Test
 
 		public void Initialize(GeneratorInitializationContext context)
 		{
-			context.RegisterForSyntaxNotifications(() => new SaveSyntaxReceiver());
+			context.RegisterForSyntaxNotifications(() => new MainSyntaxReceiver());
 		}
 	}
 
-	public class SaveSyntaxReceiver : ISyntaxReceiver
+	public class MainSyntaxReceiver : ISyntaxReceiver
 	{
-		public int Index { get; set; }
+		public SaveAggregate Saves { get; } = new();
 
 		public void OnVisitSyntaxNode(SyntaxNode syntaxNode)
 		{
-			if (syntaxNode is ClassDeclarationSyntax)
-			{
+			Saves.OnVisitSyntaxNode(syntaxNode);
+		}
+	}
 
-			}
+	public class SaveAggregate : ISyntaxReceiver
+	{
+		public void OnVisitSyntaxNode(SyntaxNode syntaxNode)
+		{
+			
 		}
 	}
 }
