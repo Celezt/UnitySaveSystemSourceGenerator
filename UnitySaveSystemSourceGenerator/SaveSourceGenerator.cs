@@ -1,6 +1,5 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -14,6 +13,7 @@ namespace Celezt.SaveSystem.Generation
 		public void Execute(GeneratorExecutionContext context)
 		{
 			var receiver = (MainSyntaxReceiver)context.SyntaxReceiver;
+
 			var output = @"
 public class Test 
 {
@@ -41,9 +41,19 @@ public class Test
 
 	public class SaveAggregate : ISyntaxReceiver
 	{
+		public List<FieldDeclarationSyntax> Fields { get; } = new();
+		public List<ClassDeclarationSyntax> Classes { get; } = new();
+
 		public void OnVisitSyntaxNode(SyntaxNode syntaxNode)
 		{
-			
+			if (syntaxNode is not AttributeSyntax { Name: IdentifierNameSyntax{Identifier.Text: "Save"} } attribute)
+				return;
+
+			var fieldDeclaration = attribute.GetParent<FieldDeclarationSyntax>();
+			var classDeclaration = attribute.GetParent<ClassDeclarationSyntax>();
+
+			Fields.Add(fieldDeclaration);
+			Classes.Add(classDeclaration);
 		}
 	}
 }
