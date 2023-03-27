@@ -24,7 +24,7 @@ namespace Celezt.SaveSystem.Generation
 				foreach (var batch in receiver.Saves.Content)
 				{
 					ClassDeclarationSyntax output = batch.Key
-						.WithMembers(new(
+						.WithMembers(SingletonList<MemberDeclarationSyntax>(
 							CreateRegisterSaveObjectMethod(
 								CreateSaveContent(Identifier("key"), batch.Value))))
 						.NormalizeWhitespace();
@@ -47,12 +47,12 @@ namespace Celezt.SaveSystem.Generation
 
 		public void Initialize(GeneratorInitializationContext context)
 		{
-//#if DEBUG
-//			if (!Debugger.IsAttached)
-//			{
-//				Debugger.Launch();
-//			}
-//#endif
+#if (DEBUG)
+			if (!Debugger.IsAttached)
+			{
+				Debugger.Launch();
+			}
+#endif
 
 			context.RegisterForSyntaxNotifications(() => new MainSyntaxReceiver());
 		}
@@ -76,44 +76,38 @@ namespace Celezt.SaveSystem.Generation
 					ArgumentList(
 						SingletonSeparatedList(
 							Argument(
-								IdentifierName(entryKeyToken))))
-						.WithCloseParenToken(Token(
-								TriviaList(),
-								SyntaxKind.CloseParenToken,
-								TriviaList(
-									LineFeed))));
+								IdentifierName(entryKeyToken)))));
 
-			ExpressionSyntax SetSubEntry(ExpressionSyntax expression, SyntaxToken fieldToken, TypeSyntax typeSyntax)
-			{
-				return InvocationExpression(
+			ExpressionSyntax SetSubEntry(ExpressionSyntax expression, SyntaxToken fieldToken, TypeSyntax typeSyntax) =>
+				InvocationExpression(
 					MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, expression, IdentifierName("SetSubEntry"))
-				).WithArgumentList(ArgumentList(
-					SeparatedList<ArgumentSyntax>(
-						new SyntaxNodeOrToken[]{
-							Argument(								// .SetSubEntry("{}",
+						.WithOperatorToken(Token(SyntaxKind.DotToken)))
+					.WithArgumentList(ArgumentList(
+						SeparatedList<ArgumentSyntax>(
+							new SyntaxNodeOrToken[]{
+								Argument(								// .SetSubEntry("{}",
 									LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(fieldToken.Text))),
 								Token(SyntaxKind.CommaToken),
-							Argument(								//		() => {fieldToken},
+								Argument(								//		() => {fieldToken},
 									ParenthesizedLambdaExpression()
 										.WithExpressionBody(
 											IdentifierName(fieldToken))),
 								Token(SyntaxKind.CommaToken),
-							Argument(								//		value => {fieldToken} = ({fieldTypeToken})value);
-								SimpleLambdaExpression(				
-									Parameter(Identifier("value")))
+								Argument(								//		value => {fieldToken} = ({fieldTypeToken})value);
+									SimpleLambdaExpression(				
+											Parameter(
+												Identifier("value")))
 										.WithExpressionBody(
-											AssignmentExpression(
-												SyntaxKind.SimpleAssignmentExpression,
+											AssignmentExpression(SyntaxKind.SimpleAssignmentExpression,
 												IdentifierName(fieldToken),
 												CastExpression(typeSyntax, IdentifierName("value")))))})));
-			}
 
 			ExpressionSyntax expressionSyntax = GetEntryKey();	// Deepest expression in the tree.
 			foreach (var fieldSyntax in fieldSyntaxes)	// e.g. string variable1, variable2, variable3 = ...
 				foreach (var variableSyntax in fieldSyntax.Declaration.Variables) // e.g. variable1
 					expressionSyntax = SetSubEntry(expressionSyntax, variableSyntax.Identifier, fieldSyntax.Declaration.Type);
 
-			return Block(SingletonList<StatementSyntax>(ExpressionStatement(expressionSyntax)));
+			return Block(ExpressionStatement(expressionSyntax));
 		}
 	}
 
