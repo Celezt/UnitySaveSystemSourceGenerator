@@ -20,14 +20,28 @@ namespace Celezt.SaveSystem.Generation
 		{
 			try
 			{
-				var receiver = (MainSyntaxReceiver)context.SyntaxReceiver;
-				foreach (var batch in receiver.Saves.Content)
+				var receiver = (MainSyntaxReceiver)context.SyntaxReceiver!;
+				foreach (var (syntaxClass, syntaxField) in receiver.Saves.Content.Select(x => (x.Key, x.Value)))
 				{
-					ClassDeclarationSyntax output = batch.Key
+					INamedTypeSymbol? namedTypeSymbol = context.Compilation.GetSemanticModel(syntaxClass.SyntaxTree).GetDeclaredSymbol(syntaxClass);
+					bool isDerivedFromMonoBehaviour = namedTypeSymbol?.IsDerivedFrom("UnityEngine.MonoBehaviour") ?? false;
+					bool isDerivedFromIIdentifiable = namedTypeSymbol?.IsDerivedFrom("Celezt.SaveSystem.IIdentifiable") ?? false;
+					string entryKeyName = isDerivedFromMonoBehaviour ? "this" : "Guid";
+
+					ClassDeclarationSyntax output = syntaxClass
+						.RemoveNode(syntaxClass.BaseList, SyntaxRemoveOptions.KeepNoTrivia)	// Remove base type list.
 						.WithMembers(SingletonList<MemberDeclarationSyntax>(
 							CreateRegisterSaveObjectMethod(
-								CreateSaveContent(Identifier("key"), batch.Value))))
-						.NormalizeWhitespace();
+								CreateSaveContent(Identifier(entryKeyName), syntaxField))));
+
+					// If no entryKey exist, require the user to create one by implementing IIdentifiable if not MonoBehaviour.
+					if (!isDerivedFromIIdentifiable && !isDerivedFromMonoBehaviour)
+						output = output.WithBaseList(
+							BaseList(
+								SingletonSeparatedList<BaseTypeSyntax>(
+									SimpleBaseType(IdentifierName("global::Celezt.SaveSystem.IIdentifiable")))));
+
+					output = output.NormalizeWhitespace();
 
 					context.AddSource($"{output.Identifier.Text}.g.cs", output.GetText(Encoding.UTF8));
 				}
@@ -47,12 +61,12 @@ namespace Celezt.SaveSystem.Generation
 
 		public void Initialize(GeneratorInitializationContext context)
 		{
-#if (DEBUG)
-			if (!Debugger.IsAttached)
-			{
-				Debugger.Launch();
-			}
-#endif
+//#if (DEBUG)
+//			if (!Debugger.IsAttached)
+//			{
+//				Debugger.Launch();
+//			}
+//#endif
 
 			context.RegisterForSyntaxNotifications(() => new MainSyntaxReceiver());
 		}
@@ -70,7 +84,7 @@ namespace Celezt.SaveSystem.Generation
 			ExpressionSyntax GetEntryKey() =>
 				InvocationExpression(								// SaveSystem.GetEntryKey({entryKeyToken})
 					MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
-						IdentifierName("SaveSystem"),
+						IdentifierName("global::Celezt.SaveSystem.SaveSystem"),
 						IdentifierName("GetEntryKey")))
 				.WithArgumentList(
 					ArgumentList(
@@ -88,12 +102,12 @@ namespace Celezt.SaveSystem.Generation
 								Argument(								// .SetSubEntry("{}",
 									LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(fieldToken.Text))),
 								Token(SyntaxKind.CommaToken),
-								Argument(								//		() => {fieldToken},
+								Argument(								// () => {fieldToken},
 									ParenthesizedLambdaExpression()
 										.WithExpressionBody(
 											IdentifierName(fieldToken))),
 								Token(SyntaxKind.CommaToken),
-								Argument(								//		value => {fieldToken} = ({fieldTypeToken})value);
+								Argument(								// value => {fieldToken} = ({fieldTypeToken})value);
 									SimpleLambdaExpression(				
 											Parameter(
 												Identifier("value")))
