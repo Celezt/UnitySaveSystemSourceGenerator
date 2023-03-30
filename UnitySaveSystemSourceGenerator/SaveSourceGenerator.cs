@@ -23,16 +23,17 @@ namespace Celezt.SaveSystem.Generation
 				var receiver = (MainSyntaxReceiver)context.SyntaxReceiver!;
 				foreach (var (syntaxClass, syntaxField) in receiver.Saves.Content.Select(x => (x.Key, x.Value)))
 				{
-					INamedTypeSymbol? namedTypeSymbol = context.Compilation.GetSemanticModel(syntaxClass.SyntaxTree).GetDeclaredSymbol(syntaxClass);
-					bool isDerivedFromMonoBehaviour = namedTypeSymbol?.IsDerivedFrom("UnityEngine.MonoBehaviour") ?? false;
-					bool isDerivedFromIIdentifiable = namedTypeSymbol?.IsDerivedFrom("Celezt.SaveSystem.IIdentifiable") ?? false;
+					SemanticModel semanticModel = context.Compilation.GetSemanticModel(syntaxClass.SyntaxTree);
+					INamedTypeSymbol? classNamedTypeSymbol = semanticModel.GetDeclaredSymbol(syntaxClass);
+					bool isDerivedFromMonoBehaviour = classNamedTypeSymbol?.IsDerivedFrom("UnityEngine.MonoBehaviour") ?? false;
+					bool isDerivedFromIIdentifiable = classNamedTypeSymbol?.IsDerivedFrom("Celezt.SaveSystem.IIdentifiable") ?? false;
 					string entryKeyName = isDerivedFromMonoBehaviour ? "this" : "Guid";
 
 					ClassDeclarationSyntax output = syntaxClass
 						.RemoveNode(syntaxClass.BaseList, SyntaxRemoveOptions.KeepNoTrivia)	// Remove base type list.
 						.WithMembers(SingletonList<MemberDeclarationSyntax>(
 							CreateRegisterSaveObjectMethod(
-								CreateSaveContent(Identifier(entryKeyName), syntaxField))));
+								CreateSaveContent(semanticModel, Identifier(entryKeyName), syntaxField))));
 
 					// If no entryKey exist, require the user to create one by implementing IIdentifiable if not MonoBehaviour.
 					if (!isDerivedFromIIdentifiable && !isDerivedFromMonoBehaviour)
@@ -49,12 +50,13 @@ namespace Celezt.SaveSystem.Generation
 			catch (Exception e)
 			{
 				context.ReportDiagnostic(Diagnostic.Create(new DiagnosticDescriptor(
-					"SI0000",
+					"SS0001",
 					"An exception was thrown by the Save generator",
 					"An exception was thrown by the Save generator: '{0}'",
 					"Save",
 					DiagnosticSeverity.Error,
 					isEnabledByDefault: true
+					
 				), Location.None, e));
 			}
 		}
@@ -79,7 +81,7 @@ namespace Celezt.SaveSystem.Generation
 					TokenList(Token(SyntaxKind.ProtectedKeyword)))
 				.WithBody(blockSyntax);
 
-		private BlockSyntax CreateSaveContent(SyntaxToken entryKeyToken, List<FieldDeclarationSyntax> fieldSyntaxes)
+		private BlockSyntax CreateSaveContent(SemanticModel semanticModel, SyntaxToken entryKeyToken, List<FieldDeclarationSyntax> fieldSyntaxes)
 		{
 			ExpressionSyntax GetEntryKey() =>
 				InvocationExpression(								// SaveSystem.GetEntryKey({entryKeyToken})
@@ -114,7 +116,10 @@ namespace Celezt.SaveSystem.Generation
 										.WithExpressionBody(
 											AssignmentExpression(SyntaxKind.SimpleAssignmentExpression,
 												IdentifierName(fieldToken),
-												CastExpression(typeSyntax, IdentifierName("value")))))})));
+												CastExpression(
+													IdentifierName(semanticModel.GetTypeInfo(typeSyntax).Type!
+														.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)),	// global::Namespace.Type
+													IdentifierName("value")))))})));
 
 			ExpressionSyntax expressionSyntax = GetEntryKey();	// Deepest expression in the tree.
 			foreach (var fieldSyntax in fieldSyntaxes)	// e.g. string variable1, variable2, variable3 = ...
