@@ -76,10 +76,6 @@ namespace Celezt.SaveSystem.Generation
 			context.RegisterForSyntaxNotifications(() => new MainSyntaxReceiver());
 		}
 
-		public static bool IsSave(ISymbol symbol) =>
-			symbol.GetAttributes().Any(x => x.AttributeClass?
-				.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) == "global::Celezt.SaveSystem.SaveAttribute");
-
 		private MethodDeclarationSyntax CreateRegisterSaveObjectMethod(BlockSyntax blockSyntax) =>
 			MethodDeclaration(
 					PredefinedType(Token(SyntaxKind.VoidKeyword)), 
