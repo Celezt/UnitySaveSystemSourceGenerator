@@ -21,21 +21,24 @@ namespace Celezt.SaveSystem.Generation
 			try
 			{
 				var receiver = (MainSyntaxReceiver)context.SyntaxReceiver!;
-				foreach (var (syntaxClass, syntaxField) in receiver.Saves.Content.Select(x => (x.Key, x.Value)))
+				foreach (var (classDeclaration, fieldDeclaration) in receiver.Saves.Content.Select(x => (x.Key, x.Value)))
 				{
-					SemanticModel semanticModel = context.Compilation.GetSemanticModel(syntaxClass.SyntaxTree);
-					INamedTypeSymbol? classNamedTypeSymbol = semanticModel.GetDeclaredSymbol(syntaxClass);
+					if (!classDeclaration.IsPartial())	// ignore if class is not partial. 
+						continue;
+
+					SemanticModel semanticModel = context.Compilation.GetSemanticModel(classDeclaration.SyntaxTree);
+					INamedTypeSymbol? classNamedTypeSymbol = semanticModel.GetDeclaredSymbol(classDeclaration);
 					bool isDerivedFromMonoBehaviour = classNamedTypeSymbol?.IsDerivedFrom("UnityEngine.MonoBehaviour") ?? false;
 					bool isDerivedFromIIdentifiable = classNamedTypeSymbol?.IsDerivedFrom("Celezt.SaveSystem.IIdentifiable") ?? false;
 					string entryKeyName = isDerivedFromMonoBehaviour ? "this" : "Guid";
 
-					ClassDeclarationSyntax output = syntaxClass
-						.RemoveNode(syntaxClass.BaseList, SyntaxRemoveOptions.KeepNoTrivia)	// Remove base type list.
+					ClassDeclarationSyntax output = classDeclaration
+						.RemoveNode(classDeclaration.BaseList, SyntaxRemoveOptions.KeepNoTrivia)	// Remove base type list.
 						.WithMembers(SingletonList<MemberDeclarationSyntax>(
 							CreateRegisterSaveObjectMethod(
-								CreateSaveContent(semanticModel, Identifier(entryKeyName), syntaxField))));
+								CreateSaveContent(semanticModel, Identifier(entryKeyName), fieldDeclaration))));
 
-					// If no entryKey exist, require the user to create one by implementing IIdentifiable if not MonoBehaviour.
+					// If no entryKey exist and is not derived from MonoBehaviour, require the user to create one by implementing IIdentifiable.
 					if (!isDerivedFromIIdentifiable && !isDerivedFromMonoBehaviour)
 						output = output.WithBaseList(
 							BaseList(
@@ -73,6 +76,10 @@ namespace Celezt.SaveSystem.Generation
 			context.RegisterForSyntaxNotifications(() => new MainSyntaxReceiver());
 		}
 
+		public static bool IsSave(ISymbol symbol) =>
+			symbol.GetAttributes().Any(x => x.AttributeClass?
+				.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) == "global::Celezt.SaveSystem.SaveAttribute");
+
 		private MethodDeclarationSyntax CreateRegisterSaveObjectMethod(BlockSyntax blockSyntax) =>
 			MethodDeclaration(
 					PredefinedType(Token(SyntaxKind.VoidKeyword)), 
@@ -81,7 +88,7 @@ namespace Celezt.SaveSystem.Generation
 					TokenList(Token(SyntaxKind.ProtectedKeyword)))
 				.WithBody(blockSyntax);
 
-		private BlockSyntax CreateSaveContent(SemanticModel semanticModel, SyntaxToken entryKeyToken, List<FieldDeclarationSyntax> fieldSyntaxes)
+		private BlockSyntax CreateSaveContent(SemanticModel semanticModel, SyntaxToken entryKeyToken, List<FieldDeclarationSyntax> fieldDeclaration)
 		{
 			ExpressionSyntax GetEntryKey() =>
 				InvocationExpression(								// SaveSystem.GetEntryKey({entryKeyToken})
@@ -122,7 +129,7 @@ namespace Celezt.SaveSystem.Generation
 													IdentifierName("value")))))})));
 
 			ExpressionSyntax expressionSyntax = GetEntryKey();	// Deepest expression in the tree.
-			foreach (var fieldSyntax in fieldSyntaxes)	// e.g. string variable1, variable2, variable3 = ...
+			foreach (var fieldSyntax in fieldDeclaration)	// e.g. string variable1, variable2, variable3 = ...
 				foreach (var variableSyntax in fieldSyntax.Declaration.Variables) // e.g. variable1
 					expressionSyntax = SetSubEntry(expressionSyntax, variableSyntax.Identifier, fieldSyntax.Declaration.Type);
 
@@ -146,11 +153,20 @@ namespace Celezt.SaveSystem.Generation
 
 		public void OnVisitSyntaxNode(SyntaxNode syntaxNode)
 		{
-			if (syntaxNode is not AttributeSyntax { Name: IdentifierNameSyntax{Identifier.Text: "Save"} } attribute)
+			if (syntaxNode is not AttributeSyntax { Name: IdentifierNameSyntax{Identifier.Text: "Save" or "SaveAttribute"} } attribute)
 				return;
 
 			var fieldDeclaration = attribute.GetParent<FieldDeclarationSyntax>();
 			var classDeclaration = attribute.GetParent<ClassDeclarationSyntax>();
+
+			if (fieldDeclaration is null)
+				return;
+
+			if (classDeclaration is null)
+				return;
+
+			if (!classDeclaration.IsPartial())
+				return;
 
 			if (Content.TryGetValue(classDeclaration, out var fields))
 				fields.Add(fieldDeclaration);

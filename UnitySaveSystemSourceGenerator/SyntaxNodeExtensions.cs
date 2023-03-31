@@ -10,18 +10,21 @@ namespace Celezt.SaveSystem.Generation
 {
 	public static class SyntaxNodeExtensions
 	{
-		public static T GetParent<T>(this SyntaxNode syntaxNode)
+		/// <summary>
+		///	Get syntaxNode parent recursively until the parent is found or null.
+		/// </summary>
+		public static T? GetParent<T>(this SyntaxNode syntaxNode) where T : SyntaxNode
 		{
 			var parent = syntaxNode.Parent;
-			while (true)
+			while (parent != null)
 			{
-				if (parent == null)
-					throw new Exception("Parent is null");
-				else if (parent is T t)
+				if (parent is T t)
 					return t;
 
 				parent = parent.Parent;
 			}
+
+			return null;
 		}
 
 		/// <summary>
@@ -39,7 +42,7 @@ namespace Celezt.SaveSystem.Generation
 			return Microsoft.CodeAnalysis.SyntaxNodeExtensions.RemoveNode(root, node, options) ?? root;
 		}
 
-			public static bool IsDerivedFrom(this INamedTypeSymbol symbol, string typeFullName)
+		public static bool IsDerivedFrom(this INamedTypeSymbol symbol, string typeFullName)
 		{
 			while (symbol.BaseType != null)
 			{
@@ -51,6 +54,14 @@ namespace Celezt.SaveSystem.Generation
 
 			return false;
 		}
+
+		/// <summary>
+		/// If the type contains the 'partial' keyword or not.
+		/// </summary>
+		/// <param name="typeDeclaration"></param>
+		/// <returns></returns>
+		public static bool IsPartial(this TypeDeclarationSyntax typeDeclaration) =>
+			typeDeclaration.Modifiers.Any(x => x.IsKind(SyntaxKind.PartialKeyword));
 	}
 }
 
