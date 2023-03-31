@@ -35,8 +35,8 @@ namespace Celezt.SaveSystem.Generation
 		{
 			var symbol = (IFieldSymbol)context.Symbol;
 
-			if (!symbol.GetAttributes().Any(x => x.AttributeClass?
-				.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) == "global::Celezt.SaveSystem.SaveAttribute"))
+			if (!symbol.GetAttributes()
+				.Any(x => x.AttributeClass?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) == "global::Celezt.SaveSystem.SaveAttribute"))
 				return;
 
 			foreach (var declaringSyntaxReference in symbol.DeclaringSyntaxReferences)

@@ -3,7 +3,7 @@ using UnityEngine;
 
 var test = new Test();
 
-public partial class Test : MonoBehaviour
+public class Test : MonoBehaviour
 {
 	[Save]
 	private Vector3 _position;

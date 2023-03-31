@@ -12,7 +12,7 @@ namespace Celezt.SaveSystem.Generation
 					"A class containing the attribute '[Save]' must be partial",
 					"The class '{0}' must be partial to allow the source generator to generate the necessary code for the save to work at '{1}'",
 					"Save",
-					DiagnosticSeverity.Error,
+					DiagnosticSeverity.Warning,
 					isEnabledByDefault: true);
 	}
 }
