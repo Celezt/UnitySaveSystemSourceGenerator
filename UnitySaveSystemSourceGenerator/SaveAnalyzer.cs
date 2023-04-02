@@ -28,18 +28,16 @@ namespace Celezt.SaveSystem.Generation
 			context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 			context.EnableConcurrentExecution();
 			
-			context.RegisterSymbolAction(ClassMustBePartialAnalyzer, SymbolKind.Field);
+			context.RegisterSymbolAction(ClassMustBePartialAnalyzer, SymbolKind.Field, SymbolKind.Property);
 		}
 
 		private void ClassMustBePartialAnalyzer(SymbolAnalysisContext context)
 		{
-			var symbol = (IFieldSymbol)context.Symbol;
-
-			if (!symbol.GetAttributes()
+			if (!context.Symbol.GetAttributes()
 				.Any(x => x.AttributeClass?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) == "global::Celezt.SaveSystem.SaveAttribute"))
 				return;
 
-			foreach (var declaringSyntaxReference in symbol.DeclaringSyntaxReferences)
+			foreach (var declaringSyntaxReference in context.Symbol.DeclaringSyntaxReferences)
 			{
 				var classDeclaration = declaringSyntaxReference.GetSyntax().GetParent<ClassDeclarationSyntax>();
 
@@ -47,7 +45,7 @@ namespace Celezt.SaveSystem.Generation
 					continue;
 
 				var error = Diagnostic.Create(SaveDiagnosticsDescriptors.ClassMustBePartial,
-								symbol.Locations.FirstOrDefault(), classDeclaration.Identifier.ValueText, symbol.Name);
+								context.Symbol.Locations.FirstOrDefault(), classDeclaration.Identifier.ValueText, context.Symbol.Name);
 
 				context.ReportDiagnostic(error);
 			}

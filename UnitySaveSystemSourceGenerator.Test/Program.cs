@@ -9,6 +9,9 @@ namespace Namespace
 	public partial class Test : MonoBehaviour
 	{
 		[Save]
+		public float Speed { get; set; }
+
+		[Save]
 		private Vector3 _position;
 
 		[Save]

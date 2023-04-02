@@ -21,8 +21,8 @@ namespace Celezt.SaveSystem.Generation
 			try
 			{
 				var receiver = (MainSyntaxReceiver)context.SyntaxReceiver!;
-				foreach (var (classDeclaration, namespaceDeclaration, fieldDeclaration) in 
-					receiver.Saves.Content.Select(x => (x.Key, x.Value.Namespace, x.Value.Fields)))
+				foreach (var (classDeclaration, namespaceDeclaration, valueDeclarations) in 
+					receiver.Saves.Content.Select(x => (x.Key, x.Value.Namespace, x.Value.Values)))
 				{
 					if (!classDeclaration.IsPartial())	// ignore if class is not partial. 
 						continue;
@@ -37,7 +37,7 @@ namespace Celezt.SaveSystem.Generation
 						.RemoveNode(classDeclaration.BaseList, SyntaxRemoveOptions.KeepNoTrivia)	// Remove base type list.
 						.WithMembers(SingletonList<MemberDeclarationSyntax>(
 							CreateRegisterSaveObjectMethod(
-								CreateSaveContent(semanticModel, Identifier(entryKeyName), fieldDeclaration))));
+								CreateSaveContent(semanticModel, Identifier(entryKeyName), valueDeclarations))));
 
 					// If no entryKey exist and is not derived from MonoBehaviour, require the user to create one by implementing IIdentifiable.
 					if (!isDerivedFromIIdentifiable && !isDerivedFromMonoBehaviour)
@@ -91,7 +91,7 @@ namespace Celezt.SaveSystem.Generation
 					TokenList(Token(SyntaxKind.ProtectedKeyword)))
 				.WithBody(blockSyntax);
 
-		private BlockSyntax CreateSaveContent(SemanticModel semanticModel, SyntaxToken entryKeyToken, List<FieldDeclarationSyntax> fieldDeclaration)
+		private BlockSyntax CreateSaveContent(SemanticModel semanticModel, SyntaxToken entryKeyToken, List<MemberDeclarationSyntax> valueDeclarations)
 		{
 			ExpressionSyntax GetEntryKey() =>
 				InvocationExpression(								// SaveSystem.GetEntryKey({entryKeyToken})
@@ -132,9 +132,16 @@ namespace Celezt.SaveSystem.Generation
 													IdentifierName("value")))))})));
 
 			ExpressionSyntax expressionSyntax = GetEntryKey();	// Deepest expression in the tree.
-			foreach (var fieldSyntax in fieldDeclaration)	// e.g. string variable1, variable2, variable3 = ...
-				foreach (var variableSyntax in fieldSyntax.Declaration.Variables) // e.g. variable1
-					expressionSyntax = SetSubEntry(expressionSyntax, variableSyntax.Identifier, fieldSyntax.Declaration.Type);
+			foreach (var valueDeclaration in valueDeclarations)  // e.g. string variable1, variable2, variable3 = ... or string Variable { get; set } = ...
+			{
+				if (valueDeclaration is FieldDeclarationSyntax fieldDeclaration)    // If value is of type field.
+					foreach (var variableSyntax in fieldDeclaration.Declaration.Variables) // e.g. variable1
+						expressionSyntax = SetSubEntry(expressionSyntax, variableSyntax.Identifier, fieldDeclaration.Declaration.Type);
+				else if (valueDeclaration is PropertyDeclarationSyntax propertyDeclaration)
+					expressionSyntax = SetSubEntry(expressionSyntax, propertyDeclaration.Identifier, propertyDeclaration.Type);
+				else
+					throw new NotSupportedException($"{valueDeclaration.GetType()} is not supported as a value declaration");
+			}
 
 			return Block(ExpressionStatement(expressionSyntax));
 		}
@@ -152,18 +159,18 @@ namespace Celezt.SaveSystem.Generation
 
 	public class SaveAggregate : ISyntaxReceiver
 	{
-		public Dictionary<ClassDeclarationSyntax, (NamespaceDeclarationSyntax? Namespace, List<FieldDeclarationSyntax> Fields)> Content { get; } = new();
+		public Dictionary<ClassDeclarationSyntax, (NamespaceDeclarationSyntax? Namespace, List<MemberDeclarationSyntax> Values)> Content { get; } = new();
 
 		public void OnVisitSyntaxNode(SyntaxNode syntaxNode)
 		{
 			if (syntaxNode is not AttributeSyntax { Name: IdentifierNameSyntax{Identifier.Text: "Save" or "SaveAttribute"} } attribute)
 				return;
 
-			var fieldDeclaration = attribute.GetParent<FieldDeclarationSyntax>();
+			var valueDeclaration = (MemberDeclarationSyntax?)attribute.GetParent<FieldDeclarationSyntax>() ?? attribute.GetParent<PropertyDeclarationSyntax>();
 			var classDeclaration = attribute.GetParent<ClassDeclarationSyntax>();
 			var namespaceDeclaration = attribute.GetParent<NamespaceDeclarationSyntax>();
-
-			if (fieldDeclaration is null)
+			
+			if (valueDeclaration is null)
 				return;
 
 			if (classDeclaration is null)
@@ -173,9 +180,9 @@ namespace Celezt.SaveSystem.Generation
 				return;
 
 			if (Content.TryGetValue(classDeclaration, out var data))
-				data.Fields.Add(fieldDeclaration);
+				data.Values.Add(valueDeclaration);
 			else
-				Content[classDeclaration] = (namespaceDeclaration, new() { fieldDeclaration });
+				Content[classDeclaration] = (namespaceDeclaration, new() { valueDeclaration });
 		}
 	}
 }
