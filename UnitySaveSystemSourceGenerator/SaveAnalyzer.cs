@@ -28,10 +28,10 @@ namespace Celezt.SaveSystem.Generation
 			context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 			context.EnableConcurrentExecution();
 			
-			context.RegisterSymbolAction(Analyzer, SymbolKind.Field);
+			context.RegisterSymbolAction(ClassMustBePartialAnalyzer, SymbolKind.Field);
 		}
 
-		private void Analyzer(SymbolAnalysisContext context)
+		private void ClassMustBePartialAnalyzer(SymbolAnalysisContext context)
 		{
 			var symbol = (IFieldSymbol)context.Symbol;
 

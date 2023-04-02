@@ -1,17 +1,22 @@
 ﻿using Celezt.SaveSystem;
 using UnityEngine;
+using Namespace;
 
 var test = new Test();
 
-public class Test : MonoBehaviour
+namespace Namespace
 {
-	[Save]
-	private Vector3 _position;
-
-	private string _stringField = string.Empty, _anotherStringField = "Hello, World!";
-
-	public Test()
+	public partial class Test : MonoBehaviour
 	{
+		[Save]
+		private Vector3 _position;
 
+		[Save]
+		private string _stringField = string.Empty, _anotherStringField = "Hello, World!";
+
+		public Test()
+		{
+
+		}
 	}
 }

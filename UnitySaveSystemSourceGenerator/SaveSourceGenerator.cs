@@ -21,7 +21,8 @@ namespace Celezt.SaveSystem.Generation
 			try
 			{
 				var receiver = (MainSyntaxReceiver)context.SyntaxReceiver!;
-				foreach (var (classDeclaration, fieldDeclaration) in receiver.Saves.Content.Select(x => (x.Key, x.Value)))
+				foreach (var (classDeclaration, namespaceDeclaration, fieldDeclaration) in 
+					receiver.Saves.Content.Select(x => (x.Key, x.Value.Namespace, x.Value.Fields)))
 				{
 					if (!classDeclaration.IsPartial())	// ignore if class is not partial. 
 						continue;
@@ -32,7 +33,7 @@ namespace Celezt.SaveSystem.Generation
 					bool isDerivedFromIIdentifiable = classNamedTypeSymbol?.IsDerivedFrom("Celezt.SaveSystem.IIdentifiable") ?? false;
 					string entryKeyName = isDerivedFromMonoBehaviour ? "this" : "Guid";
 
-					ClassDeclarationSyntax output = classDeclaration
+					ClassDeclarationSyntax generatedClass = classDeclaration
 						.RemoveNode(classDeclaration.BaseList, SyntaxRemoveOptions.KeepNoTrivia)	// Remove base type list.
 						.WithMembers(SingletonList<MemberDeclarationSyntax>(
 							CreateRegisterSaveObjectMethod(
@@ -40,20 +41,26 @@ namespace Celezt.SaveSystem.Generation
 
 					// If no entryKey exist and is not derived from MonoBehaviour, require the user to create one by implementing IIdentifiable.
 					if (!isDerivedFromIIdentifiable && !isDerivedFromMonoBehaviour)
-						output = output.WithBaseList(
+						generatedClass = generatedClass.WithBaseList(
 							BaseList(
 								SingletonSeparatedList<BaseTypeSyntax>(
 									SimpleBaseType(IdentifierName("global::Celezt.SaveSystem.IIdentifiable")))));
 
-					output = output.NormalizeWhitespace();
+					if (namespaceDeclaration != null)	// If the class is wrapped inside of a namespace.
+					{
+						NamespaceDeclarationSyntax generatedNamespace = namespaceDeclaration
+							.WithMembers(SingletonList<MemberDeclarationSyntax>(generatedClass));
 
-					context.AddSource($"{output.Identifier.Text}.g.cs", output.GetText(Encoding.UTF8));
+						context.AddSource($"{generatedClass.Identifier.Text}.g.cs", generatedNamespace.NormalizeWhitespace().GetText(Encoding.UTF8));
+					}
+					else
+						context.AddSource($"{generatedClass.Identifier.Text}.g.cs", generatedClass.NormalizeWhitespace().GetText(Encoding.UTF8));		
 				}
 			}
 			catch (Exception e)
 			{
 				context.ReportDiagnostic(Diagnostic.Create(new DiagnosticDescriptor(
-					"SS0001",
+					"CSS000",
 					"An exception was thrown by the Save generator",
 					"An exception was thrown by the Save generator: '{0}'",
 					"Save",
@@ -145,7 +152,7 @@ namespace Celezt.SaveSystem.Generation
 
 	public class SaveAggregate : ISyntaxReceiver
 	{
-		public Dictionary<ClassDeclarationSyntax, List<FieldDeclarationSyntax>> Content { get; } = new();
+		public Dictionary<ClassDeclarationSyntax, (NamespaceDeclarationSyntax? Namespace, List<FieldDeclarationSyntax> Fields)> Content { get; } = new();
 
 		public void OnVisitSyntaxNode(SyntaxNode syntaxNode)
 		{
@@ -154,6 +161,7 @@ namespace Celezt.SaveSystem.Generation
 
 			var fieldDeclaration = attribute.GetParent<FieldDeclarationSyntax>();
 			var classDeclaration = attribute.GetParent<ClassDeclarationSyntax>();
+			var namespaceDeclaration = attribute.GetParent<NamespaceDeclarationSyntax>();
 
 			if (fieldDeclaration is null)
 				return;
@@ -164,10 +172,10 @@ namespace Celezt.SaveSystem.Generation
 			if (!classDeclaration.IsPartial())
 				return;
 
-			if (Content.TryGetValue(classDeclaration, out var fields))
-				fields.Add(fieldDeclaration);
+			if (Content.TryGetValue(classDeclaration, out var data))
+				data.Fields.Add(fieldDeclaration);
 			else
-				Content[classDeclaration] = new() { fieldDeclaration };
+				Content[classDeclaration] = (namespaceDeclaration, new() { fieldDeclaration });
 		}
 	}
 }
