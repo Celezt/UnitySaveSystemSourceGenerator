@@ -16,7 +16,7 @@ using System.Threading.Tasks;
 namespace Celezt.SaveSystem.Generation
 {
 	[ExportCodeFixProvider(LanguageNames.CSharp)]
-	public class SaveCodeFixProvider : CodeFixProvider
+	internal class SaveCodeFixProvider : CodeFixProvider
 	{
 		public override ImmutableArray<string> FixableDiagnosticIds { get; }
 			= ImmutableArray.Create(SaveDiagnosticsDescriptors.ClassMustBePartial.Id);

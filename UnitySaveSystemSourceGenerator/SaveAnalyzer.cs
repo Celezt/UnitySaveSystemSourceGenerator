@@ -12,7 +12,7 @@ using System.Text;
 namespace Celezt.SaveSystem.Generation
 {
 	[DiagnosticAnalyzer(LanguageNames.CSharp)]
-	public class SaveAnalyzer : DiagnosticAnalyzer
+	internal class SaveAnalyzer : DiagnosticAnalyzer
 	{
 		public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; }
 			= ImmutableArray.Create(SaveDiagnosticsDescriptors.ClassMustBePartial);

@@ -14,7 +14,7 @@ using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 namespace Celezt.SaveSystem.Generation
 {
 	[Generator]
-	public class SaveSourceGenerator : ISourceGenerator
+	internal class SaveSourceGenerator : ISourceGenerator
 	{
 		public void Execute(GeneratorExecutionContext context)
 		{
@@ -112,7 +112,7 @@ namespace Celezt.SaveSystem.Generation
 						SeparatedList<ArgumentSyntax>(
 							new SyntaxNodeOrToken[]{
 								Argument(								// .SetSubEntry("{}",
-									LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(fieldToken.Text))),
+									LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(fieldToken.Text.ToSnakeCase()))),
 								Token(SyntaxKind.CommaToken),
 								Argument(								// () => {fieldToken},
 									ParenthesizedLambdaExpression()
@@ -147,7 +147,7 @@ namespace Celezt.SaveSystem.Generation
 		}
 	}
 
-	public class MainSyntaxReceiver : ISyntaxReceiver
+	internal class MainSyntaxReceiver : ISyntaxReceiver
 	{
 		public SaveAggregate Saves { get; } = new();
 
@@ -157,7 +157,7 @@ namespace Celezt.SaveSystem.Generation
 		}
 	}
 
-	public class SaveAggregate : ISyntaxReceiver
+	internal class SaveAggregate : ISyntaxReceiver
 	{
 		public Dictionary<ClassDeclarationSyntax, (NamespaceDeclarationSyntax? Namespace, List<MemberDeclarationSyntax> Values)> Content { get; } = new();
 

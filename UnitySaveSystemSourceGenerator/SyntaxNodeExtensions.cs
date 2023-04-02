@@ -8,7 +8,7 @@ using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace Celezt.SaveSystem.Generation
 {
-	public static class SyntaxNodeExtensions
+	internal static class SyntaxNodeExtensions
 	{
 		/// <summary>
 		///	Get syntaxNode parent recursively until the parent is found or null.

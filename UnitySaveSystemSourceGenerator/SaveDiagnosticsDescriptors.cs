@@ -5,7 +5,7 @@ using System.Text;
 
 namespace Celezt.SaveSystem.Generation
 {
-	public static class SaveDiagnosticsDescriptors
+	internal static class SaveDiagnosticsDescriptors
 	{
 		public static readonly DiagnosticDescriptor ClassMustBePartial = new(
 					"CSS001",
