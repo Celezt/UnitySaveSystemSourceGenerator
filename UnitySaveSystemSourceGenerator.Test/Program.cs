@@ -19,7 +19,7 @@ namespace Namespace
 
 		public Test()
 		{
-
+			//RegisterSaveObject();
 		}
 	}
 }

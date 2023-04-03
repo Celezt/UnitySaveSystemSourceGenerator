@@ -163,12 +163,12 @@ namespace Celezt.SaveSystem.Generation
 
 		public void OnVisitSyntaxNode(SyntaxNode syntaxNode)
 		{
-			if (syntaxNode is not AttributeSyntax { Name: IdentifierNameSyntax{Identifier.Text: "Save" or "SaveAttribute"} } attribute)
+			if (!IsSaveAttribute(syntaxNode, out var attributeSyntax))
 				return;
 
-			var valueDeclaration = (MemberDeclarationSyntax?)attribute.GetParent<FieldDeclarationSyntax>() ?? attribute.GetParent<PropertyDeclarationSyntax>();
-			var classDeclaration = attribute.GetParent<ClassDeclarationSyntax>();
-			var namespaceDeclaration = attribute.GetParent<NamespaceDeclarationSyntax>();
+			var valueDeclaration = (MemberDeclarationSyntax?)attributeSyntax.GetParent<FieldDeclarationSyntax>() ?? attributeSyntax.GetParent<PropertyDeclarationSyntax>();
+			var classDeclaration = attributeSyntax.GetParent<ClassDeclarationSyntax>();
+			var namespaceDeclaration = attributeSyntax.GetParent<NamespaceDeclarationSyntax>();
 			
 			if (valueDeclaration is null)
 				return;
@@ -183,6 +183,21 @@ namespace Celezt.SaveSystem.Generation
 				data.Values.Add(valueDeclaration);
 			else
 				Content[classDeclaration] = (namespaceDeclaration, new() { valueDeclaration });
+		}
+
+		public static bool IsSaveAttribute(SyntaxNode syntaxNode, out AttributeSyntax attributeSyntax)
+		{
+			attributeSyntax = null!;
+
+			if (syntaxNode is AttributeSyntax{
+				Name: IdentifierNameSyntax { Identifier.Text: "Save" or "SaveAttribute" }
+					or QualifiedNameSyntax { Right.Identifier.Text: "Save" or "SaveAttribute" }} attribute)
+			{
+				attributeSyntax = attribute;
+				return true;
+			}
+
+			return false;
 		}
 	}
 }

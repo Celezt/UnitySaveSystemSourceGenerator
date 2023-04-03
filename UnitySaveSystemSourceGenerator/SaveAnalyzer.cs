@@ -9,13 +9,19 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text;
 
+using static Celezt.SaveSystem.Generation.SaveDiagnosticsDescriptors;
+
 namespace Celezt.SaveSystem.Generation
 {
 	[DiagnosticAnalyzer(LanguageNames.CSharp)]
 	internal class SaveAnalyzer : DiagnosticAnalyzer
 	{
 		public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; }
-			= ImmutableArray.Create(SaveDiagnosticsDescriptors.ClassMustBePartial);
+			= ImmutableArray.Create
+				(
+					ClassMustBePartial, 
+					MustBeInsideAClass
+				);
 
 		public override void Initialize(AnalysisContext context)
 		{
@@ -28,10 +34,10 @@ namespace Celezt.SaveSystem.Generation
 			context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 			context.EnableConcurrentExecution();
 			
-			context.RegisterSymbolAction(ClassMustBePartialAnalyzer, SymbolKind.Field, SymbolKind.Property);
+			context.RegisterSymbolAction(Analyzer, SymbolKind.Field, SymbolKind.Property);
 		}
 
-		private void ClassMustBePartialAnalyzer(SymbolAnalysisContext context)
+		private void Analyzer(SymbolAnalysisContext context)
 		{
 			if (!context.Symbol.GetAttributes()
 				.Any(x => x.AttributeClass?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) == "global::Celezt.SaveSystem.SaveAttribute"))
@@ -39,15 +45,31 @@ namespace Celezt.SaveSystem.Generation
 
 			foreach (var declaringSyntaxReference in context.Symbol.DeclaringSyntaxReferences)
 			{
-				var classDeclaration = declaringSyntaxReference.GetSyntax().GetParent<ClassDeclarationSyntax>();
+				var syntaxNode = declaringSyntaxReference.GetSyntax();	// Can be property or variable. If variable, get parent field.
+				var memberDeclaration = syntaxNode is MemberDeclarationSyntax ? (MemberDeclarationSyntax)syntaxNode : syntaxNode.GetParent<MemberDeclarationSyntax>()!;
+				var classDeclaration = memberDeclaration.GetParent<ClassDeclarationSyntax>();
+				var attributeSyntax = memberDeclaration.AttributeLists.SelectFirstOrDefault(x => x.Attributes.FirstOrDefault(x => SaveAggregate.IsSaveAttribute(x, out _)))!;
 
-				if (classDeclaration == null || classDeclaration.IsPartial())
-					continue;
+				if (classDeclaration == null)	// If '[Save]' is not inside a class.
+				{
+					var typeDeclaration = memberDeclaration.GetParent<TypeDeclarationSyntax>()!;
 
-				var error = Diagnostic.Create(SaveDiagnosticsDescriptors.ClassMustBePartial,
-								context.Symbol.Locations.FirstOrDefault(), classDeclaration.Identifier.ValueText, context.Symbol.Name);
+					string typeKind = typeDeclaration.Kind() switch
+					{
+						SyntaxKind.StructDeclaration => "struct",
+						SyntaxKind.InterfaceDeclaration => "interface",
+						SyntaxKind.RecordDeclaration => "record",
+						_ => "",
+					};
 
-				context.ReportDiagnostic(error);
+					context.ReportDiagnostic(Diagnostic.Create(MustBeInsideAClass,
+						attributeSyntax.GetLocation(), typeKind, context.Symbol.Name));
+				}
+				else if (!classDeclaration.IsPartial())	// If the class does not contain the modifier 'partial'.
+				{
+					context.ReportDiagnostic(Diagnostic.Create(ClassMustBePartial,
+						attributeSyntax.GetLocation(), classDeclaration.Identifier.ValueText, context.Symbol.Name));
+				}
 			}
 		}
 	}
