@@ -22,4 +22,11 @@ namespace Namespace
 			//RegisterSaveObject();
 		}
 	}
+
+	public partial class Test2
+	{
+		public Guid Guid { get; set; }
+		[Save]
+		public float Speed { get; set;}
+	}
 }
