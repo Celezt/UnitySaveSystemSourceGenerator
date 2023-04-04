@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Linq;
+using System.Net.Mime;
 using System.Text;
 
 using static Celezt.SaveSystem.Generation.SaveDiagnosticsDescriptors;
@@ -20,7 +21,8 @@ namespace Celezt.SaveSystem.Generation
 			= ImmutableArray.Create
 				(
 					ClassMustBePartial, 
-					MustBeInsideAClass
+					MustBeInsideAClass,
+					MustImplementIIdentifiable
 				);
 
 		public override void Initialize(AnalysisContext context)
@@ -34,23 +36,31 @@ namespace Celezt.SaveSystem.Generation
 			context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 			context.EnableConcurrentExecution();
 			
-			context.RegisterSymbolAction(Analyzer, SymbolKind.Field, SymbolKind.Property);
+			context.RegisterSyntaxNodeAction(SyntaxNodeAnalyzer, SyntaxKind.AttributeList);
 		}
 
-		private void Analyzer(SymbolAnalysisContext context)
+		private void SyntaxNodeAnalyzer(SyntaxNodeAnalysisContext context)
 		{
-			if (!context.Symbol.GetAttributes()
-				.Any(x => x.AttributeClass?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) == "global::Celezt.SaveSystem.SaveAttribute"))
+			var symbol = context.ContainingSymbol;
+
+			if (symbol == null)
 				return;
 
-			foreach (var declaringSyntaxReference in context.Symbol.DeclaringSyntaxReferences)
-			{
-				var syntaxNode = declaringSyntaxReference.GetSyntax();	// Can be property or variable. If variable, get parent field.
-				var memberDeclaration = syntaxNode is MemberDeclarationSyntax ? (MemberDeclarationSyntax)syntaxNode : syntaxNode.GetParent<MemberDeclarationSyntax>()!;
-				var classDeclaration = memberDeclaration.GetParent<ClassDeclarationSyntax>();
-				var attributeSyntax = memberDeclaration.AttributeLists.SelectFirstOrDefault(x => x.Attributes.FirstOrDefault(x => SaveAggregate.IsSaveAttribute(x, out _)))!;
+			if (!symbol.GetAttributes()
+				.Any(x => x.AttributeClass?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) == "global::Celezt.SaveSystem.SaveAttribute"))
+							return;
 
-				if (classDeclaration == null)	// If '[Save]' is not inside a class.
+			foreach (var declaringSyntaxReference in symbol.DeclaringSyntaxReferences)
+			{
+				var syntaxNode = declaringSyntaxReference.GetSyntax();  // Can be property or variable. If variable, get parent field.
+				var memberDeclaration = syntaxNode is MemberDeclarationSyntax ? (MemberDeclarationSyntax)syntaxNode : syntaxNode.GetParent<MemberDeclarationSyntax>()!;
+				var attributeSyntax = memberDeclaration.AttributeLists.SelectFirstOrDefault(x => x.Attributes.FirstOrDefault(x => SaveAggregate.IsSaveAttribute(x, out _)))!;
+				var classDeclaration = memberDeclaration.GetParent<ClassDeclarationSyntax>();
+				var classNamedTypeSymbol = classDeclaration != null ? context.SemanticModel.GetDeclaredSymbol(classDeclaration) : null;
+				var isDerivedFromMonoBehaviour = classNamedTypeSymbol?.IsDerivedFrom("UnityEngine.MonoBehaviour") ?? false;
+				var isDerivedFromIIdentifiable = classNamedTypeSymbol?.AllInterfaces.Any(x => x.ToString() == "Celezt.SaveSystem.IIdentifiable") ?? false;
+
+				if (classDeclaration == null)   // If '[Save]' is not inside a class.
 				{
 					var typeDeclaration = memberDeclaration.GetParent<TypeDeclarationSyntax>()!;
 
@@ -63,12 +73,17 @@ namespace Celezt.SaveSystem.Generation
 					};
 
 					context.ReportDiagnostic(Diagnostic.Create(MustBeInsideAClass,
-						attributeSyntax.GetLocation(), typeKind, context.Symbol.Name));
+						attributeSyntax.GetLocation(), typeKind));
 				}
-				else if (!classDeclaration.IsPartial())	// If the class does not contain the modifier 'partial'.
+				else if (!(isDerivedFromIIdentifiable || isDerivedFromMonoBehaviour))    // If the class is not derived from MonoBehaviour and has not implemented IIdentifiable.
+				{
+					context.ReportDiagnostic(Diagnostic.Create(MustImplementIIdentifiable,
+						attributeSyntax.GetLocation(), classDeclaration.Identifier.ValueText));
+				}
+				else if (!classDeclaration.IsPartial()) // If the class does not contain the modifier 'partial'.
 				{
 					context.ReportDiagnostic(Diagnostic.Create(ClassMustBePartial,
-						attributeSyntax.GetLocation(), classDeclaration.Identifier.ValueText, context.Symbol.Name));
+						attributeSyntax.GetLocation(), classDeclaration.Identifier.ValueText));
 				}
 			}
 		}

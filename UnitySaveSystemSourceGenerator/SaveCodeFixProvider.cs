@@ -14,6 +14,7 @@ using System.Threading;
 using System.Threading.Tasks;
 
 using static Celezt.SaveSystem.Generation.SaveDiagnosticsDescriptors;
+using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace Celezt.SaveSystem.Generation
 {
@@ -24,7 +25,8 @@ namespace Celezt.SaveSystem.Generation
 			= ImmutableArray.Create
 				(
 					ClassMustBePartial.Id,
-					MustBeInsideAClass.Id
+					MustBeInsideAClass.Id,
+					MustImplementIIdentifiable.Id
 				);
 
 		public override FixAllProvider? GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
@@ -40,6 +42,8 @@ namespace Celezt.SaveSystem.Generation
 					Register(ClassMustBePartial.Title.ToString(), AddPartialKeywordAsync);
 				else if (diagnostic.Id == MustBeInsideAClass.Id)
 					Register(MustBeInsideAClass.Title.ToString(), ChangeToClass);
+				else if (diagnostic.Id == MustImplementIIdentifiable.Id)
+					Register(MustImplementIIdentifiable.Title.ToString(), ImplementIIdentifiable);
 			}
 
 			return Task.CompletedTask;
@@ -54,8 +58,7 @@ namespace Celezt.SaveSystem.Generation
 
 			var classDeclaration = FindDeclaration<ClassDeclarationSyntax>(diagnostic, root);
 
-			var partialToken = SyntaxFactory.Token(SyntaxKind.PartialKeyword);
-			var newDeclaration = classDeclaration.AddModifiers(partialToken);
+			var newDeclaration = classDeclaration.AddModifiers(Token(SyntaxKind.PartialKeyword));
 			var newRoot = root.ReplaceNode(classDeclaration, newDeclaration);
 
 			return context.Document.WithSyntaxRoot(newRoot);
@@ -70,11 +73,25 @@ namespace Celezt.SaveSystem.Generation
 
 			var typeDeclaration = FindDeclaration<TypeDeclarationSyntax>(diagnostic, root);	// E.g. struct, interface, record.
 
-			var newClassDeclaration = SyntaxFactory.ClassDeclaration(typeDeclaration.AttributeLists, typeDeclaration.Modifiers, typeDeclaration.Identifier,
+			var newClassDeclaration = ClassDeclaration(typeDeclaration.AttributeLists, typeDeclaration.Modifiers, typeDeclaration.Identifier,
 										typeDeclaration.TypeParameterList, typeDeclaration.BaseList, typeDeclaration.ConstraintClauses, typeDeclaration.Members);
 			var newRoot = root.ReplaceNode(typeDeclaration, newClassDeclaration);
 
 			return context.Document.WithSyntaxRoot(newRoot);			
+		}
+
+		private async Task<Document> ImplementIIdentifiable(CodeFixContext context, Diagnostic diagnostic, CancellationToken cancellationToken)
+		{
+			SyntaxNode? root = await context.Document.GetSyntaxRootAsync(cancellationToken);
+
+			if (root is null)
+				return context.Document;
+
+			var classDeclaration = FindDeclaration<ClassDeclarationSyntax>(diagnostic, root);
+			var newDeclaration = classDeclaration.AddBaseListTypes(SimpleBaseType(IdentifierName("IIdentifiable")));
+			var newRoot = root.ReplaceNode(classDeclaration, newDeclaration);
+
+			return context.Document.WithSyntaxRoot(newRoot);
 		}
 
 		private static T FindDeclaration<T>(Diagnostic diagnostic, SyntaxNode root) where T : TypeDeclarationSyntax =>

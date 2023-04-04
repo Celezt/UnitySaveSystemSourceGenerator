@@ -30,7 +30,6 @@ namespace Celezt.SaveSystem.Generation
 					SemanticModel semanticModel = context.Compilation.GetSemanticModel(classDeclaration.SyntaxTree);
 					INamedTypeSymbol? classNamedTypeSymbol = semanticModel.GetDeclaredSymbol(classDeclaration);
 					bool isDerivedFromMonoBehaviour = classNamedTypeSymbol?.IsDerivedFrom("UnityEngine.MonoBehaviour") ?? false;
-					bool isDerivedFromIIdentifiable = classNamedTypeSymbol?.IsDerivedFrom("Celezt.SaveSystem.IIdentifiable") ?? false;
 					string entryKeyName = isDerivedFromMonoBehaviour ? "this" : "Guid";
 
 					ClassDeclarationSyntax generatedClass = classDeclaration
@@ -38,13 +37,6 @@ namespace Celezt.SaveSystem.Generation
 						.WithMembers(SingletonList<MemberDeclarationSyntax>(
 							CreateRegisterSaveObjectMethod(
 								CreateSaveContent(semanticModel, Identifier(entryKeyName), valueDeclarations))));
-
-					// If no entryKey exist and is not derived from MonoBehaviour, require the user to create one by implementing IIdentifiable.
-					if (!isDerivedFromIIdentifiable && !isDerivedFromMonoBehaviour)
-						generatedClass = generatedClass.WithBaseList(
-							BaseList(
-								SingletonSeparatedList<BaseTypeSyntax>(
-									SimpleBaseType(IdentifierName("global::Celezt.SaveSystem.IIdentifiable")))));
 
 					if (namespaceDeclaration != null)	// If the class is wrapped inside of a namespace.
 					{

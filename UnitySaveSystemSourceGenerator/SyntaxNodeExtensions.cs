@@ -46,7 +46,7 @@ namespace Celezt.SaveSystem.Generation
 		{
 			while (symbol.BaseType != null)
 			{
-				if (symbol.ToString() == typeFullName) 
+				if (symbol.ToString() == typeFullName)
 					return true;
 
 				symbol = symbol.BaseType;

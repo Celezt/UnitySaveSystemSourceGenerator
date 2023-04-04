@@ -6,10 +6,13 @@ var test = new Test();
 
 namespace Namespace
 {
-	public partial class Test : MonoBehaviour
+	public partial class Test : IIdentifiable
 	{
+		public Guid Guid => throw new NotImplementedException();
+
 		[Save]
 		public float Speed { get; set; }
+
 
 		[Save]
 		private Vector3 _position;
@@ -23,10 +26,9 @@ namespace Namespace
 		}
 	}
 
-	public partial class Test2
-	{
-		public Guid Guid { get; set; }
-		[Save]
-		public float Speed { get; set;}
-	}
+	//public partial struct Test2
+	//{
+	//	[Save]
+	//	public float Speed { get; set; }
+	//}
 }
