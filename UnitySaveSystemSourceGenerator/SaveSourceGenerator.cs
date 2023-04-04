@@ -21,8 +21,7 @@ namespace Celezt.SaveSystem.Generation
 			try
 			{
 				var receiver = (MainSyntaxReceiver)context.SyntaxReceiver!;
-				foreach (var (classDeclaration, namespaceDeclaration, valueDeclarations) in 
-					receiver.Saves.Content.Select(x => (x.Key, x.Value.Namespace, x.Value.Values)))
+				foreach (var (classDeclaration, namespaceDeclaration, valueDeclarations) in receiver.Saves.Content.Select(x => (x.Key, x.Value.Namespace, x.Value.Values)))
 				{
 					if (!classDeclaration.IsPartial())	// ignore if class is not partial. 
 						continue;
@@ -40,9 +39,10 @@ namespace Celezt.SaveSystem.Generation
 
 					if (namespaceDeclaration != null)	// If the class is wrapped inside of a namespace.
 					{
-						NamespaceDeclarationSyntax generatedNamespace = namespaceDeclaration
-							.WithMembers(SingletonList<MemberDeclarationSyntax>(generatedClass));
-
+						NamespaceDeclarationSyntax generatedNamespace = NamespaceDeclaration(
+							namespaceDeclaration.AttributeLists, namespaceDeclaration.Modifiers,
+							namespaceDeclaration.Name, namespaceDeclaration.Externs, namespaceDeclaration.Usings, 
+							SingletonList<MemberDeclarationSyntax>(generatedClass));
 						context.AddSource($"{generatedClass.Identifier.Text}.g.cs", generatedNamespace.NormalizeWhitespace().GetText(Encoding.UTF8));
 					}
 					else
