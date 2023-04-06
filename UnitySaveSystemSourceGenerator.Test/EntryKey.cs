@@ -19,5 +19,15 @@ namespace Celezt.SaveSystem
 		{
 			return new EntryKey();
 		}
+
+		/// <summary>
+		/// Add or set entry.
+		/// </summary>
+		/// <param name="id">Identifier.</param>
+		/// <param name="onSave">Set value when saving.</param>
+		public EntryKey SetSubEntry(string id, Func<object> onSave)
+		{
+			return new EntryKey();
+		}
 	}
 }

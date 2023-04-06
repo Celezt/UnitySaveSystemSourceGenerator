@@ -88,6 +88,7 @@ namespace Celezt.SaveSystem.Generation
 				return context.Document;
 
 			var classDeclaration = FindDeclaration<ClassDeclarationSyntax>(diagnostic, root);
+
 			var newDeclaration = classDeclaration.AddBaseListTypes(SimpleBaseType(IdentifierName("IIdentifiable")));
 			var newRoot = root.ReplaceNode(classDeclaration, newDeclaration);
 

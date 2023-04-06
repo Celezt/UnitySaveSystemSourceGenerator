@@ -21,21 +21,23 @@ namespace Celezt.SaveSystem.Generation
 			try
 			{
 				var receiver = (MainSyntaxReceiver)context.SyntaxReceiver!;
-				foreach (var (classDeclaration, namespaceDeclaration, valueDeclarations) in receiver.Saves.Content.Select(x => (x.Key, x.Value.Namespace, x.Value.Values)))
+				foreach (var (classDeclaration, namespaceDeclaration, membersDeclarations) in receiver.Saves.Content.Select(x => (x.Key, x.Value.Namespace, x.Value.Members)))
 				{
-					if (!classDeclaration.IsPartial())	// ignore if class is not partial. 
-						continue;
-
 					SemanticModel semanticModel = context.Compilation.GetSemanticModel(classDeclaration.SyntaxTree);
 					INamedTypeSymbol? classNamedTypeSymbol = semanticModel.GetDeclaredSymbol(classDeclaration);
 					bool isDerivedFromMonoBehaviour = classNamedTypeSymbol?.IsDerivedFrom("UnityEngine.MonoBehaviour") ?? false;
-					string entryKeyName = isDerivedFromMonoBehaviour ? "this" : "Guid";
+					bool isDerivedFromIIdentifiable = classNamedTypeSymbol?.AllInterfaces.Any(x => x.ToString() == "Celezt.SaveSystem.IIdentifiable") ?? false;
+
+					if (!isDerivedFromMonoBehaviour && !isDerivedFromIIdentifiable)	// IIdentifiable or MonoBehaviour is required to generate code.
+						continue;
+
+					string entryKeyName = isDerivedFromIIdentifiable ? "Guid" : "this"; // Prioritize using existing Guid.
 
 					ClassDeclarationSyntax generatedClass = classDeclaration
 						.RemoveNode(classDeclaration.BaseList, SyntaxRemoveOptions.KeepNoTrivia)	// Remove base type list.
 						.WithMembers(SingletonList<MemberDeclarationSyntax>(
 							CreateRegisterSaveObjectMethod(
-								CreateSaveContent(semanticModel, Identifier(entryKeyName), valueDeclarations))));
+								CreateSaveContent(semanticModel, Identifier(entryKeyName), membersDeclarations))));
 
 					if (namespaceDeclaration != null)	// If the class is wrapped inside of a namespace.
 					{
@@ -83,7 +85,7 @@ namespace Celezt.SaveSystem.Generation
 					TokenList(Token(SyntaxKind.ProtectedKeyword)))
 				.WithBody(blockSyntax);
 
-		private BlockSyntax CreateSaveContent(SemanticModel semanticModel, SyntaxToken entryKeyToken, List<MemberDeclarationSyntax> valueDeclarations)
+		private BlockSyntax CreateSaveContent(SemanticModel semanticModel, SyntaxToken entryKeyToken, List<MemberDeclarationSyntax> memberDeclarations)
 		{
 			ExpressionSyntax GetEntryKey() =>
 				InvocationExpression(								// SaveSystem.GetEntryKey({entryKeyToken})
@@ -96,41 +98,67 @@ namespace Celezt.SaveSystem.Generation
 							Argument(
 								IdentifierName(entryKeyToken)))));
 
-			ExpressionSyntax SetSubEntry(ExpressionSyntax expression, SyntaxToken fieldToken, TypeSyntax typeSyntax) =>
-				InvocationExpression(
+			ExpressionSyntax SetSubEntry(ExpressionSyntax expression, SyntaxNode syntaxNode)
+			{
+				List<SyntaxNodeOrToken> Arguments()
+				{
+					IFieldSymbol? fieldSymbol = syntaxNode is VariableDeclaratorSyntax ? (IFieldSymbol?)semanticModel.GetDeclaredSymbol(syntaxNode) : null;
+					IPropertySymbol? propertySymbol = syntaxNode is PropertyDeclarationSyntax ? (IPropertySymbol?)semanticModel.GetDeclaredSymbol(syntaxNode) : null;
+
+					if (fieldSymbol == null && propertySymbol == null)
+						throw new NullReferenceException("SyntaxNode most be of type 'VariableDeclaratorSyntax' or 'PropertyDeclarationSyntax'.");
+
+					ITypeSymbol typeSymbol = fieldSymbol?.Type ?? propertySymbol!.Type;
+					bool isReadOnly = fieldSymbol?.IsReadOnly ?? propertySymbol!.IsReadOnly;
+					bool isConst = fieldSymbol?.IsConst ?? false;
+					string identifier = fieldSymbol?.Name ?? propertySymbol!.Name;
+					SyntaxToken identifierToken = Identifier(identifier);
+
+					List<SyntaxNodeOrToken> syntaxNodeOrTokens = new List<SyntaxNodeOrToken>()
+					{
+						Argument(								// .SetSubEntry("{}",
+							LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(identifier.ToSnakeCase()))),
+						Token(SyntaxKind.CommaToken),
+						Argument(								// () => {fieldToken},
+							ParenthesizedLambdaExpression()
+								.WithExpressionBody(
+									IdentifierName(identifierToken)))
+					};
+
+					if (!(isReadOnly || isConst))
+					{
+						syntaxNodeOrTokens.Add(Token(SyntaxKind.CommaToken));
+						syntaxNodeOrTokens.Add(Argument(                                // value => {valueToken} = ({valueTypeToken})value);
+							SimpleLambdaExpression(
+									Parameter(
+										Identifier("value")))
+								.WithExpressionBody(
+									AssignmentExpression(SyntaxKind.SimpleAssignmentExpression,
+										IdentifierName(identifierToken),
+										CastExpression(
+											IdentifierName(typeSymbol!
+												.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)),    // global::Namespace.Type
+											IdentifierName("value"))))));
+					}
+
+					return syntaxNodeOrTokens;
+				}
+
+				return InvocationExpression(
 					MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, expression, IdentifierName("SetSubEntry"))
 						.WithOperatorToken(Token(SyntaxKind.DotToken)))
 					.WithArgumentList(ArgumentList(
-						SeparatedList<ArgumentSyntax>(
-							new SyntaxNodeOrToken[]{
-								Argument(								// .SetSubEntry("{}",
-									LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(fieldToken.Text.ToSnakeCase()))),
-								Token(SyntaxKind.CommaToken),
-								Argument(								// () => {fieldToken},
-									ParenthesizedLambdaExpression()
-										.WithExpressionBody(
-											IdentifierName(fieldToken))),
-								Token(SyntaxKind.CommaToken),
-								Argument(								// value => {fieldToken} = ({fieldTypeToken})value);
-									SimpleLambdaExpression(				
-											Parameter(
-												Identifier("value")))
-										.WithExpressionBody(
-											AssignmentExpression(SyntaxKind.SimpleAssignmentExpression,
-												IdentifierName(fieldToken),
-												CastExpression(
-													IdentifierName(semanticModel.GetTypeInfo(typeSyntax).Type!
-														.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)),	// global::Namespace.Type
-													IdentifierName("value")))))})));
+						SeparatedList<ArgumentSyntax>(Arguments())));
+			}
 
 			ExpressionSyntax expressionSyntax = GetEntryKey();	// Deepest expression in the tree.
-			foreach (var valueDeclaration in valueDeclarations)  // e.g. string variable1, variable2, variable3 = ... or string Variable { get; set } = ...
+			foreach (var valueDeclaration in memberDeclarations)  // e.g. string variable1, variable2, variable3 = ... or string Variable { get; set } = ...
 			{
 				if (valueDeclaration is FieldDeclarationSyntax fieldDeclaration)    // If value is of type field.
 					foreach (var variableSyntax in fieldDeclaration.Declaration.Variables) // e.g. variable1
-						expressionSyntax = SetSubEntry(expressionSyntax, variableSyntax.Identifier, fieldDeclaration.Declaration.Type);
+						expressionSyntax = SetSubEntry(expressionSyntax, variableSyntax);
 				else if (valueDeclaration is PropertyDeclarationSyntax propertyDeclaration)
-					expressionSyntax = SetSubEntry(expressionSyntax, propertyDeclaration.Identifier, propertyDeclaration.Type);
+					expressionSyntax = SetSubEntry(expressionSyntax, propertyDeclaration);
 				else
 					throw new NotSupportedException($"{valueDeclaration.GetType()} is not supported as a value declaration");
 			}
@@ -151,18 +179,18 @@ namespace Celezt.SaveSystem.Generation
 
 	internal class SaveAggregate : ISyntaxReceiver
 	{
-		public Dictionary<ClassDeclarationSyntax, (NamespaceDeclarationSyntax? Namespace, List<MemberDeclarationSyntax> Values)> Content { get; } = new();
+		public Dictionary<ClassDeclarationSyntax, (NamespaceDeclarationSyntax? Namespace, List<MemberDeclarationSyntax> Members)> Content { get; } = new();
 
 		public void OnVisitSyntaxNode(SyntaxNode syntaxNode)
 		{
 			if (!IsSaveAttribute(syntaxNode, out var attributeSyntax))
 				return;
 
-			var valueDeclaration = (MemberDeclarationSyntax?)attributeSyntax.GetParent<FieldDeclarationSyntax>() ?? attributeSyntax.GetParent<PropertyDeclarationSyntax>();
+			var memberDeclaration = (MemberDeclarationSyntax?)attributeSyntax.GetParent<FieldDeclarationSyntax>() ?? attributeSyntax.GetParent<PropertyDeclarationSyntax>();
 			var classDeclaration = attributeSyntax.GetParent<ClassDeclarationSyntax>();
 			var namespaceDeclaration = attributeSyntax.GetParent<NamespaceDeclarationSyntax>();
 			
-			if (valueDeclaration is null)
+			if (memberDeclaration is null)
 				return;
 
 			if (classDeclaration is null)
@@ -172,9 +200,9 @@ namespace Celezt.SaveSystem.Generation
 				return;
 
 			if (Content.TryGetValue(classDeclaration, out var data))
-				data.Values.Add(valueDeclaration);
+				data.Members.Add(memberDeclaration);
 			else
-				Content[classDeclaration] = (namespaceDeclaration, new() { valueDeclaration });
+				Content[classDeclaration] = (namespaceDeclaration, new() { memberDeclaration });
 		}
 
 		public static bool IsSaveAttribute(SyntaxNode syntaxNode, out AttributeSyntax attributeSyntax)

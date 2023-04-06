@@ -20,15 +20,15 @@ namespace Celezt.SaveSystem.Generation
 			"The attribute '[Save]' must be inside a class",
 			"The use of '[Save]' inside a '{0}' is currently not supported",
 			"Save",
-			DiagnosticSeverity.Error,
+			DiagnosticSeverity.Warning,
 			isEnabledByDefault: true);
 
 		public static readonly DiagnosticDescriptor MustImplementIIdentifiable = new(
 			"CSS003",
 			"A class containing the attribute '[Save]' must implement IIdentifiable",
-			"The class '{0}' must implement IIdentifiable for the save to be identified. If the class is derived from MonoBehaviour, then it is expected to have a parent containing the behaviour 'SaveBehaviour'",
+			"The class '{0}' must implement IIdentifiable for the save to work. If the class is only derived from MonoBehaviour, then it is assumed to be a child of 'SaveBehaviour'",
 			"Save",
-			DiagnosticSeverity.Error,
+			DiagnosticSeverity.Warning,
 			isEnabledByDefault: true);
 	}
 }

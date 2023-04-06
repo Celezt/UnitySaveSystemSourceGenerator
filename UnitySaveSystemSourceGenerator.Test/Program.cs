@@ -13,9 +13,11 @@ namespace Namespace
 		[Save]
 		public float Speed { get; set; }
 
+		[Save]
+		public Vector3 Velocity { get; }
 
 		[Save]
-		private Vector3 _position;
+		private readonly Vector3 _position;
 
 		[Save]
 		private string _stringField = string.Empty, _anotherStringField = "Hello, World!";
