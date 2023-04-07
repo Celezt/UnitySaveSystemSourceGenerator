@@ -13,6 +13,40 @@ namespace Celezt.SaveSystem.Generation
 		/// <summary>
 		///	Get syntaxNode parent recursively until the parent is found or null.
 		/// </summary>
+		public static SyntaxNode? GetParent<T1, T2, T3>(this SyntaxNode syntaxNode) where T1 : SyntaxNode where T2 : SyntaxNode where T3 : SyntaxNode
+		{
+			var parent = syntaxNode.Parent;
+			while (parent != null)
+			{
+				if (parent is T1 or T2 or T3)
+					return parent;
+
+				parent = parent.Parent;
+			}
+
+			return null;
+		}
+
+		/// <summary>
+		///	Get syntaxNode parent recursively until the parent is found or null.
+		/// </summary>
+		public static SyntaxNode? GetParent<T1, T2>(this SyntaxNode syntaxNode) where T1 : SyntaxNode where T2 : SyntaxNode
+		{
+			var parent = syntaxNode.Parent;
+			while (parent != null)
+			{
+				if (parent is T1 or T2)
+					return parent;
+
+				parent = parent.Parent;
+			}
+
+			return null;
+		}
+
+		/// <summary>
+		///	Get syntaxNode parent recursively until the parent is found or null.
+		/// </summary>
 		public static T? GetParent<T>(this SyntaxNode syntaxNode) where T : SyntaxNode
 		{
 			var parent = syntaxNode.Parent;

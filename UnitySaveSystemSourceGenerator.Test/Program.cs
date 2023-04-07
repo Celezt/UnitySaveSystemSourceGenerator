@@ -6,25 +6,41 @@ var test = new Test();
 
 namespace Namespace
 {
-	public partial class Test : IIdentifiable
+	public partial class Test : MonoBehaviour, IIdentifiable
 	{
-		public Guid Guid => throw new NotImplementedException();
+		//[Save]
+		//protected const double CONST_VALUE = double.MaxValue;
 
-		[Save]
-		public float Speed { get; set; }
+		public Guid Guid { get; } = Guid.NewGuid();
 
-		[Save]
-		public Vector3 Velocity { get; }
+		//[Save]
+		//public float Speed { get; set; }
 
-		[Save]
-		private readonly Vector3 _position;
+		//[Save]
+		//public Vector3 Velocity { get; }
 
-		[Save]
-		private string _stringField = string.Empty, _anotherStringField = "Hello, World!";
+		//[Save]
+		//private readonly Vector3 _position;
+
+		//[Save]
+		//private string _stringField = string.Empty, _anotherStringField = "Hello, World!";
 
 		public Test()
 		{
 			//RegisterSaveObject();
+			//SaveSystem.GetEntryKey(Guid).AddListener("hej", value => GetDrag((float)value));
+		}
+
+		[Save]
+		private void SetDrag(float value)
+		{
+
+		}
+
+		[Save]
+		private float GetDrag()
+		{
+			return 1;
 		}
 	}
 

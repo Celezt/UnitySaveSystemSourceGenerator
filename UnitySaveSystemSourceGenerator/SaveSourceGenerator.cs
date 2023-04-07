@@ -100,45 +100,83 @@ namespace Celezt.SaveSystem.Generation
 
 			ExpressionSyntax SetSubEntry(ExpressionSyntax expression, SyntaxNode syntaxNode)
 			{
+				IFieldSymbol? fieldSymbol = syntaxNode is VariableDeclaratorSyntax ? (IFieldSymbol?)semanticModel.GetDeclaredSymbol(syntaxNode) : null;
+				IPropertySymbol? propertySymbol = syntaxNode is PropertyDeclarationSyntax ? (IPropertySymbol?)semanticModel.GetDeclaredSymbol(syntaxNode) : null;
+				IMethodSymbol? methodSymbol = syntaxNode is MethodDeclarationSyntax ? (IMethodSymbol?)semanticModel.GetDeclaredSymbol(syntaxNode) : null;
+
+				if (fieldSymbol == null && propertySymbol == null && methodSymbol == null)
+					throw new NullReferenceException("SyntaxNode most be of type 'VariableDeclaratorSyntax', 'PropertyDeclarationSyntax' or 'MethodDeclarationSyntax'.");
+
+				ITypeSymbol? typeSymbol = fieldSymbol?.Type ?? propertySymbol?.Type ?? methodSymbol!.Parameters.FirstOrDefault()?.Type;
+				bool isReadOnly = fieldSymbol?.IsReadOnly ?? propertySymbol?.IsReadOnly ?? false;
+				bool isConst = fieldSymbol?.IsConst ?? false;
+				bool isVoid = methodSymbol?.ReturnsVoid ?? false;
+				string identifier = fieldSymbol?.Name ?? propertySymbol?.Name ?? methodSymbol!.Name;
+
 				List<SyntaxNodeOrToken> Arguments()
 				{
-					IFieldSymbol? fieldSymbol = syntaxNode is VariableDeclaratorSyntax ? (IFieldSymbol?)semanticModel.GetDeclaredSymbol(syntaxNode) : null;
-					IPropertySymbol? propertySymbol = syntaxNode is PropertyDeclarationSyntax ? (IPropertySymbol?)semanticModel.GetDeclaredSymbol(syntaxNode) : null;
-
-					if (fieldSymbol == null && propertySymbol == null)
-						throw new NullReferenceException("SyntaxNode most be of type 'VariableDeclaratorSyntax' or 'PropertyDeclarationSyntax'.");
-
-					ITypeSymbol typeSymbol = fieldSymbol?.Type ?? propertySymbol!.Type;
-					bool isReadOnly = fieldSymbol?.IsReadOnly ?? propertySymbol!.IsReadOnly;
-					bool isConst = fieldSymbol?.IsConst ?? false;
-					string identifier = fieldSymbol?.Name ?? propertySymbol!.Name;
-					SyntaxToken identifierToken = Identifier(identifier);
-
-					List<SyntaxNodeOrToken> syntaxNodeOrTokens = new List<SyntaxNodeOrToken>()
+					List <SyntaxNodeOrToken> syntaxNodeOrTokens = new List<SyntaxNodeOrToken>()
 					{
 						Argument(								// .SetSubEntry("{}",
-							LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(identifier.ToSnakeCase()))),
-						Token(SyntaxKind.CommaToken),
-						Argument(								// () => {fieldToken},
-							ParenthesizedLambdaExpression()
-								.WithExpressionBody(
-									IdentifierName(identifierToken)))
+							LiteralExpression(SyntaxKind.StringLiteralExpression, 
+								Literal(methodSymbol != null ? 
+									identifier.TrimStart("Set", "Get").ToSnakeCase() : 
+									identifier.ToSnakeCase())))
 					};
 
-					if (!(isReadOnly || isConst))
+					if (!isVoid)
+					{
+						ExpressionSyntax Expression()
+						{
+							if (methodSymbol != null)
+							{
+								return InvocationExpression(
+									IdentifierName(identifier));
+							}
+							else
+							{
+								return IdentifierName(identifier);
+							}
+						}
+
+						syntaxNodeOrTokens.Add(Token(SyntaxKind.CommaToken));
+						syntaxNodeOrTokens.Add(Argument(                                // () => {fieldToken},
+							ParenthesizedLambdaExpression()
+								.WithExpressionBody(Expression())));
+					}
+
+					CastExpressionSyntax Cast() =>
+						CastExpression(
+							IdentifierName(typeSymbol!
+								.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)),    // global::Namespace.Type
+							IdentifierName("value"));
+
+					if (methodSymbol != null)
+					{
+						if (isVoid)
+						{
+							syntaxNodeOrTokens.Add(Token(SyntaxKind.CommaToken));
+							syntaxNodeOrTokens.Add(Argument(                                // value => {Type} = ({Type})value);
+								SimpleLambdaExpression(
+										Parameter(
+											Identifier("value")))
+									.WithExpressionBody(
+										InvocationExpression(
+												IdentifierName(identifier))
+											.WithArgumentList(ArgumentList(
+												SingletonSeparatedList<ArgumentSyntax>(
+													Argument(Cast())))))));
+						}
+					}
+					else if (!(isReadOnly || isConst))
 					{
 						syntaxNodeOrTokens.Add(Token(SyntaxKind.CommaToken));
-						syntaxNodeOrTokens.Add(Argument(                                // value => {valueToken} = ({valueTypeToken})value);
+						syntaxNodeOrTokens.Add(Argument(                                // value => {Type} = ({Type})value);
 							SimpleLambdaExpression(
 									Parameter(
 										Identifier("value")))
-								.WithExpressionBody(
-									AssignmentExpression(SyntaxKind.SimpleAssignmentExpression,
-										IdentifierName(identifierToken),
-										CastExpression(
-											IdentifierName(typeSymbol!
-												.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)),    // global::Namespace.Type
-											IdentifierName("value"))))));
+								.WithExpressionBody(AssignmentExpression(SyntaxKind.SimpleAssignmentExpression,
+										IdentifierName(identifier), Cast()))));
 					}
 
 					return syntaxNodeOrTokens;
@@ -152,15 +190,17 @@ namespace Celezt.SaveSystem.Generation
 			}
 
 			ExpressionSyntax expressionSyntax = GetEntryKey();	// Deepest expression in the tree.
-			foreach (var valueDeclaration in memberDeclarations)  // e.g. string variable1, variable2, variable3 = ... or string Variable { get; set } = ...
+			foreach (var memberDeclaration in memberDeclarations)  // e.g. string variable1, variable2, variable3 = ... or string Variable { get; set } = ...
 			{
-				if (valueDeclaration is FieldDeclarationSyntax fieldDeclaration)    // If value is of type field.
+				if (memberDeclaration is FieldDeclarationSyntax fieldDeclaration)    // If value is of type field.
 					foreach (var variableSyntax in fieldDeclaration.Declaration.Variables) // e.g. variable1
 						expressionSyntax = SetSubEntry(expressionSyntax, variableSyntax);
-				else if (valueDeclaration is PropertyDeclarationSyntax propertyDeclaration)
+				else if (memberDeclaration is PropertyDeclarationSyntax propertyDeclaration)
 					expressionSyntax = SetSubEntry(expressionSyntax, propertyDeclaration);
+				else if (memberDeclaration is MethodDeclarationSyntax methodDeclaration)
+					expressionSyntax = SetSubEntry(expressionSyntax, methodDeclaration);
 				else
-					throw new NotSupportedException($"{valueDeclaration.GetType()} is not supported as a value declaration");
+					throw new NotSupportedException($"{memberDeclaration.GetType()} is not supported as a value declaration");
 			}
 
 			return Block(ExpressionStatement(expressionSyntax));
@@ -185,8 +225,8 @@ namespace Celezt.SaveSystem.Generation
 		{
 			if (!IsSaveAttribute(syntaxNode, out var attributeSyntax))
 				return;
-
-			var memberDeclaration = (MemberDeclarationSyntax?)attributeSyntax.GetParent<FieldDeclarationSyntax>() ?? attributeSyntax.GetParent<PropertyDeclarationSyntax>();
+			
+			var memberDeclaration = (MemberDeclarationSyntax?)attributeSyntax.GetParent<FieldDeclarationSyntax, PropertyDeclarationSyntax, MethodDeclarationSyntax>();
 			var classDeclaration = attributeSyntax.GetParent<ClassDeclarationSyntax>();
 			var namespaceDeclaration = attributeSyntax.GetParent<NamespaceDeclarationSyntax>();
 			
