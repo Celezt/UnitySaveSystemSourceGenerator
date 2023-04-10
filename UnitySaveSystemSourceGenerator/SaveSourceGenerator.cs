@@ -126,7 +126,7 @@ namespace Celezt.SaveSystem.Generation
 										LiteralExpression(SyntaxKind.StringLiteralExpression,
 											Literal(symbol switch
 												{
-													IMethodSymbol => identifier.TrimStart("Set", "Get").ToSnakeCase(),
+													IMethodSymbol => identifier.TrimDecorations("Set", "Get").ToSnakeCase(),
 													_ => identifier.ToSnakeCase(),
 
 												})))

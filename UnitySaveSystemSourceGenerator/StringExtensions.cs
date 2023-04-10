@@ -75,11 +75,10 @@ namespace Celezt.SaveSystem.Generation
 			return newText.Slice(0, newTextIndex).ToString();
 		}
 
-		public static string TrimStart(this string text, params string[] trimText)
+		public static string TrimDecorations(this string text, params string[] trimText)
 		{
 			Span<bool> validTrimText = stackalloc bool[trimText.Length];
 			validTrimText.Fill(true);
-			int endIndex = 0;
 
 			for (int i = 0; i < text.Length; i++)
 			{
@@ -87,15 +86,18 @@ namespace Celezt.SaveSystem.Generation
 					if (validTrimText[j] == true)
 					{
 						if (i >= trimText[j].Length)    // completed text to trim.
-							return endIndex > 0 ? text.Remove(0, endIndex) : text;
-						
-						validTrimText[j] = text[i] == trimText[j][i];
+						{
+							if (char.IsUpper(text[i]))   // e.g. Get<M>ethod. Trim must come before an upper letter.
+								return i > 0 ? text.Remove(0, i) : text;
+							else
+								validTrimText[j] = false;
+						}
+						else
+							validTrimText[j] = text[i] == trimText[j][i];
 					}
 
 				if (!validTrimText.Any())
 					break;
-
-				endIndex++;
 			}
 
 			return text;
