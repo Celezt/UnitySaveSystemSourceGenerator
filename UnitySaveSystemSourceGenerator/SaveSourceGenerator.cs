@@ -116,7 +116,7 @@ namespace Celezt.SaveSystem.Generation
 
 				return InvocationExpression(
 					MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, expression, IdentifierName("SetSubEntry"))
-							.WithOperatorToken(Token(SyntaxKind.DotToken)))
+						.WithOperatorToken(Token(SyntaxKind.DotToken)))
 						.WithArgumentList(ArgumentList(
 							SeparatedList<ArgumentSyntax>(new Func<List<SyntaxNodeOrToken>>(() =>
 							{
@@ -136,7 +136,7 @@ namespace Celezt.SaveSystem.Generation
 								{
 									case IFieldSymbol:
 									case IPropertySymbol:
-									case IMethodSymbol { ReturnsVoid: false }: // When get.
+									case IMethodSymbol { ReturnsVoid: false, Parameters.IsEmpty: true }:
 										syntaxNodeOrTokens.Add(Token(SyntaxKind.CommaToken));
 										syntaxNodeOrTokens.Add(Argument(
 											ParenthesizedLambdaExpression()
@@ -152,7 +152,7 @@ namespace Celezt.SaveSystem.Generation
 								{
 									case IFieldSymbol { IsReadOnly: false, IsConst: false }:
 									case IPropertySymbol { IsReadOnly: false }:
-									case IMethodSymbol { ReturnsVoid: true }:
+									case IMethodSymbol { ReturnsVoid: true, Parameters.Length: > 0 }:
 										syntaxNodeOrTokens.Add(Token(SyntaxKind.CommaToken));
 										syntaxNodeOrTokens.Add(Argument(                                
 											SimpleLambdaExpression(
@@ -229,6 +229,11 @@ namespace Celezt.SaveSystem.Generation
 				return;
 
 			if (!classDeclaration.IsPartial())
+				return;
+
+			if (memberDeclaration 
+				is MethodDeclarationSyntax { ParameterList.Parameters.Count: 0, ReturnType: PredefinedTypeSyntax { Keyword: SyntaxToken { RawKind: (int)SyntaxKind.VoidKeyword } } }			// Invalid: () -> void
+				or MethodDeclarationSyntax { ParameterList.Parameters.Count: > 0, ReturnType: PredefinedTypeSyntax { Keyword: SyntaxToken { RawKind: not (int)SyntaxKind.VoidKeyword } } })		// Invalid: (var value) -> Type
 				return;
 
 			if (Content.TryGetValue(classDeclaration, out var data))
