@@ -8,36 +8,36 @@ namespace Namespace
 {
 	public partial class Test : MonoBehaviour, IIdentifiable
 	{
-		//[Save]
-		//protected const double CONST_VALUE = double.MaxValue;
+		[Save]
+		protected const double CONST_VALUE = double.MaxValue;
 
 		public Guid Guid { get; } = Guid.NewGuid();
 
-		//[Save]
-		//public float Speed { get; set; }
-
-		//[Save]
-		//public Vector3 Velocity { get; }
-
-		//[Save]
-		//private readonly Vector3 _position;
-
-		//[Save]
-		//private string _stringField = string.Empty, _anotherStringField = "Hello, World!";
-
-		//public Test()
-		//{
-		//	RegisterSaveObject();
-		//}
+		[Save]
+		public float Speed { get; set; }
 
 		[Save]
-		private void SetDrag(float value)
+		public Vector3 Velocity { get; }
+
+		[Save]
+		private readonly Vector3 _position;
+
+		[Save]
+		private string _stringField = string.Empty, _anotherStringField = "Hello, World!";
+
+		public Test()
+		{
+			RegisterSaveObject();
+		}
+
+		[Save]
+		private void SetVelocity(Vector3 value)
 		{
 
 		}
 
 		[Save]
-		private float GetDrag()
+		private Vector3 GetVelocity()
 		{
 			return default;
 		}
