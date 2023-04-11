@@ -31,13 +31,13 @@ namespace Namespace
 		//}
 
 		[Save]
-		private void SetDrag(Vector3 value)
+		private void SetDrag(float value)
 		{
 
 		}
 
 		[Save]
-		private Vector3 GetDrag()
+		private float GetDrag()
 		{
 			return default;
 		}

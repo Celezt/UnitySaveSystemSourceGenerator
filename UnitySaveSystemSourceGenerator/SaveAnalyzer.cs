@@ -22,7 +22,9 @@ namespace Celezt.SaveSystem.Generation
 				(
 					ClassMustBePartial, 
 					MustBeInsideAClass,
-					MustImplementIIdentifiable
+					MustImplementIIdentifiable,
+					GetMethodMustReturnAndNoParameters,
+					SetMethodMustBeVoidAndHaveParameters
 				);
 
 		public override void Initialize(AnalysisContext context)
@@ -46,9 +48,8 @@ namespace Celezt.SaveSystem.Generation
 			if (symbol == null)
 				return;
 
-			if (!symbol.GetAttributes()
-				.Any(x => x.AttributeClass?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) == "global::Celezt.SaveSystem.SaveAttribute"))
-							return;
+			if (!symbol.GetAttributes().Any(x => x.AttributeClass?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) == "global::Celezt.SaveSystem.SaveAttribute"))
+				return;
 
 			foreach (var declaringSyntaxReference in symbol.DeclaringSyntaxReferences)
 			{
@@ -84,6 +85,21 @@ namespace Celezt.SaveSystem.Generation
 				{
 					context.ReportDiagnostic(Diagnostic.Create(ClassMustBePartial,
 						attributeSyntax.GetLocation(), classDeclaration.Identifier.ValueText));
+				}
+				else if (memberDeclaration is MethodDeclarationSyntax methodDeclaration)
+				{
+					if (methodDeclaration is { 
+						ParameterList.Parameters.Count: 0, ReturnType: PredefinedTypeSyntax { Keyword: SyntaxToken { RawKind: (int)SyntaxKind.VoidKeyword } } })    // Invalid: () -> void
+					{
+						context.ReportDiagnostic(Diagnostic.Create(GetMethodMustReturnAndNoParameters,
+							methodDeclaration.GetLocation(), methodDeclaration.Identifier.ValueText));
+					}
+					else if (methodDeclaration is { 
+						ParameterList.Parameters.Count: 1, ReturnType: PredefinedTypeSyntax { Keyword: SyntaxToken { RawKind: not (int)SyntaxKind.VoidKeyword } } })     // Invalid: (var value) -> Type
+					{
+						context.ReportDiagnostic(Diagnostic.Create(SetMethodMustBeVoidAndHaveParameters,
+							methodDeclaration.GetLocation(), methodDeclaration.Identifier.ValueText));
+					}
 				}
 			}
 		}

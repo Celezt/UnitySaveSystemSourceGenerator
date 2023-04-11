@@ -30,5 +30,21 @@ namespace Celezt.SaveSystem.Generation
 			"Save",
 			DiagnosticSeverity.Warning,
 			isEnabledByDefault: true);
+
+		public static readonly DiagnosticDescriptor GetMethodMustReturnAndNoParameters = new(
+			"CSS004",
+			"A get method must return a value and have no parameters",
+			"The Method '{0}' must return a value and contain no parameters to be a valid get method",
+			"Save",
+			DiagnosticSeverity.Warning,
+			isEnabledByDefault: true);
+
+		public static readonly DiagnosticDescriptor SetMethodMustBeVoidAndHaveParameters = new(
+			"CSS005",
+			"A set method must be void and only contain one parameter",
+			"The Method '{0}' must be void and only contain one parameter to be a valid set method",
+			"Save",
+			DiagnosticSeverity.Warning,
+			isEnabledByDefault: true);
 	}
 }

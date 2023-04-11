@@ -152,7 +152,7 @@ namespace Celezt.SaveSystem.Generation
 								{
 									case IFieldSymbol { IsReadOnly: false, IsConst: false }:
 									case IPropertySymbol { IsReadOnly: false }:
-									case IMethodSymbol { ReturnsVoid: true, Parameters.Length: > 0 }:
+									case IMethodSymbol { ReturnsVoid: true, Parameters.Length: 1 }:
 										syntaxNodeOrTokens.Add(Token(SyntaxKind.CommaToken));
 										syntaxNodeOrTokens.Add(Argument(                                
 											SimpleLambdaExpression(
@@ -233,7 +233,7 @@ namespace Celezt.SaveSystem.Generation
 
 			if (memberDeclaration 
 				is MethodDeclarationSyntax { ParameterList.Parameters.Count: 0, ReturnType: PredefinedTypeSyntax { Keyword: SyntaxToken { RawKind: (int)SyntaxKind.VoidKeyword } } }			// Invalid: () -> void
-				or MethodDeclarationSyntax { ParameterList.Parameters.Count: > 0, ReturnType: PredefinedTypeSyntax { Keyword: SyntaxToken { RawKind: not (int)SyntaxKind.VoidKeyword } } })		// Invalid: (var value) -> Type
+				or MethodDeclarationSyntax { ParameterList.Parameters.Count: 1, ReturnType: PredefinedTypeSyntax { Keyword: SyntaxToken { RawKind: not (int)SyntaxKind.VoidKeyword } } })		// Invalid: (var value) -> Type
 				return;
 
 			if (Content.TryGetValue(classDeclaration, out var data))
