@@ -10,25 +10,31 @@ using System.Linq;
 using System.Net.Mime;
 using System.Text;
 
-using static Celezt.SaveSystem.Generation.SaveDiagnosticsDescriptors;
+using SSD = Celezt.SaveSystem.Generation.SaveDiagnosticsDescriptors;
+using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace Celezt.SaveSystem.Generation
 {
 	[DiagnosticAnalyzer(LanguageNames.CSharp)]
 	internal class SaveAnalyzer : DiagnosticAnalyzer
 	{
+		private HashSet<string> _hasCheckedRegisterSaveObject = null!;
+
 		public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; }
 			= ImmutableArray.Create
 				(
-					ClassMustBePartial, 
-					MustBeInsideAClass,
-					MustImplementIIdentifiable,
-					GetMethodMustReturnAndNoParameters,
-					SetMethodMustBeVoidAndHaveParameters
+					SSD.ClassMustBePartial,
+					SSD.MustBeInsideAClass,
+					SSD.MustImplementIIdentifiable,
+					SSD.GetMethodMustReturnAndNoParameters,
+					SSD.SetMethodMustBeVoidAndHaveParameters,
+					SSD.MustCallRegisterSaveObjectInvocation
 				);
 
 		public override void Initialize(AnalysisContext context)
 		{
+			_hasCheckedRegisterSaveObject = new();
+
 //#if (DEBUG)
 //			if (!Debugger.IsAttached)
 //			{
@@ -73,17 +79,17 @@ namespace Celezt.SaveSystem.Generation
 						_ => "",
 					};
 
-					context.ReportDiagnostic(Diagnostic.Create(MustBeInsideAClass,
+					context.ReportDiagnostic(Diagnostic.Create(SSD.MustBeInsideAClass,
 						attributeSyntax.GetLocation(), typeKind));
 				}
 				else if (!(isDerivedFromIIdentifiable || isDerivedFromMonoBehaviour))    // If the class is not derived from MonoBehaviour and has not implemented IIdentifiable.
 				{
-					context.ReportDiagnostic(Diagnostic.Create(MustImplementIIdentifiable,
+					context.ReportDiagnostic(Diagnostic.Create(SSD.MustImplementIIdentifiable,
 						attributeSyntax.GetLocation(), classDeclaration.Identifier.ValueText));
 				}
 				else if (!classDeclaration.IsPartial()) // If the class does not contain the modifier 'partial'.
 				{
-					context.ReportDiagnostic(Diagnostic.Create(ClassMustBePartial,
+					context.ReportDiagnostic(Diagnostic.Create(SSD.ClassMustBePartial,
 						attributeSyntax.GetLocation(), classDeclaration.Identifier.ValueText));
 				}
 				else if (memberDeclaration is MethodDeclarationSyntax methodDeclaration)
@@ -91,14 +97,32 @@ namespace Celezt.SaveSystem.Generation
 					if (methodDeclaration is { 
 						ParameterList.Parameters.Count: 0, ReturnType: PredefinedTypeSyntax { Keyword: SyntaxToken { RawKind: (int)SyntaxKind.VoidKeyword } } })    // Invalid: () -> void
 					{
-						context.ReportDiagnostic(Diagnostic.Create(GetMethodMustReturnAndNoParameters,
+						context.ReportDiagnostic(Diagnostic.Create(SSD.GetMethodMustReturnAndNoParameters,
 							methodDeclaration.GetLocation(), methodDeclaration.Identifier.ValueText));
 					}
 					else if (methodDeclaration is { 
 						ParameterList.Parameters.Count: 1, ReturnType: PredefinedTypeSyntax { Keyword: SyntaxToken { RawKind: not (int)SyntaxKind.VoidKeyword } } })     // Invalid: (var value) -> Type
 					{
-						context.ReportDiagnostic(Diagnostic.Create(SetMethodMustBeVoidAndHaveParameters,
+						context.ReportDiagnostic(Diagnostic.Create(SSD.SetMethodMustBeVoidAndHaveParameters,
 							methodDeclaration.GetLocation(), methodDeclaration.Identifier.ValueText));
+					}
+				}
+				else
+				{
+					lock (_hasCheckedRegisterSaveObject)
+					{
+						if (!_hasCheckedRegisterSaveObject.Contains(classNamedTypeSymbol!.ToString())) // Only check once per class.
+						{
+							_hasCheckedRegisterSaveObject.Add(classNamedTypeSymbol!.ToString());
+
+							var registerSaveObjectInvocation = classDeclaration.DescendantNodes().OfType<InvocationExpressionSyntax>()
+																	.FirstOrDefault(x => x.DescendantNodes().OfType<IdentifierNameSyntax>()
+																		.Any(x => x.Identifier.ToString() == "RegisterSaveObject"));
+
+							if (registerSaveObjectInvocation == null)
+								context.ReportDiagnostic(Diagnostic.Create(SSD.MustCallRegisterSaveObjectInvocation,
+									classDeclaration.GetLocation(), classDeclaration.Identifier.ValueText));
+						}
 					}
 				}
 			}

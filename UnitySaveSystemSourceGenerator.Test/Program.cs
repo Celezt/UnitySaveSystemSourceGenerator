@@ -25,9 +25,9 @@ namespace Namespace
 		[Save]
 		private string _stringField = string.Empty, _anotherStringField = "Hello, World!";
 
-		public Test()
+		public void Awake()
 		{
-			RegisterSaveObject();
+
 		}
 
 		[Save]
