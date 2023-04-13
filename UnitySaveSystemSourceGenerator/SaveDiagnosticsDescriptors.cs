@@ -49,8 +49,8 @@ namespace Celezt.SaveSystem.Generation
 
 		public static readonly DiagnosticDescriptor MustCallRegisterSaveObjectInvocation = new(
 			"CSS006",
-			"The method 'RegisterSaveObject' must be called for the save to be registered",
-			"The class '{0}' must call 'RegisterSaveObject' method to register all saves. It is recommended to call from Awake()",
+			"The method 'RegisterSaveObject' must be called for the 'SaveAttribute' to work",
+			"The class '{0}' must call the method 'RegisterSaveObject' to register all existing 'SaveAttribute' inside the class. It is recommended to call from Awake()",
 			"Save",
 			DiagnosticSeverity.Warning,
 			isEnabledByDefault: true);
