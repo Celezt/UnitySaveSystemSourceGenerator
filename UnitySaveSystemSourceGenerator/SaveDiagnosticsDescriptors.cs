@@ -26,7 +26,7 @@ namespace Celezt.SaveSystem.Generation
 		public static readonly DiagnosticDescriptor MustImplementIIdentifiable = new(
 			"CSS003",
 			"A class containing the attribute '[Save]' must implement IIdentifiable",
-			"The class '{0}' must implement IIdentifiable for the save to work. If the class is only derived from MonoBehaviour, then it is assumed to be a child of 'SaveBehaviour'",
+			"The class '{0}' must implement IIdentifiable for the save to work. If the class is only derived from MonoBehaviour, then it is assumed to be a child of 'IIdentifiable'",
 			"Save",
 			DiagnosticSeverity.Warning,
 			isEnabledByDefault: true);

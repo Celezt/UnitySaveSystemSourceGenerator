@@ -83,6 +83,11 @@ namespace Celezt.SaveSystem.Generation
 					Identifier("RegisterSaveObject"))
 				.WithModifiers(
 					TokenList(Token(SyntaxKind.ProtectedKeyword)))
+				.WithSimpleXmlComment("Register all content inside the class that has 'SaveAttribute' to the save system.<br/><br/>" +
+				"The name of a variable/property/method is used as ID by being converted to snake_case. 'Get' and 'Set' in front of a method name is ignored.<br/>" +
+				"There can only be one get and set per ID. Entries with the same ID (e.g. int intValue, int GetIntValue()) is overwritten based on priority:" +
+				"<list type=\"number\"><item>Method</item><item>Property</item><item>Field</item></list>" +
+				"Recommended to call this from 'Awake()'.")
 				.WithBody(blockSyntax);
 
 		private BlockSyntax CreateSaveContent(SemanticModel semanticModel, SyntaxToken entryKeyToken, List<MemberDeclarationSyntax> memberDeclarations)

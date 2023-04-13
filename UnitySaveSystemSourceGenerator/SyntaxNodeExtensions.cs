@@ -96,6 +96,52 @@ namespace Celezt.SaveSystem.Generation
 		/// <returns></returns>
 		public static bool IsPartial(this TypeDeclarationSyntax typeDeclaration) =>
 			typeDeclaration.Modifiers.Any(x => x.IsKind(SyntaxKind.PartialKeyword));
+
+		/// <summary>
+		/// Add simple XML summary comment to a member declaration.
+		/// </summary>
+		/// <param name="comment">XML comment.</param>
+		public static T WithSimpleXmlComment<T>(this T member, string comment) where T : MemberDeclarationSyntax
+		{
+			var commentTrivia = DocumentationCommentTrivia(
+								SyntaxKind.SingleLineDocumentationCommentTrivia,
+								List<XmlNodeSyntax>(
+									new XmlNodeSyntax[]{
+										XmlText()
+										.WithTextTokens(
+											TokenList(
+												XmlTextLiteral(
+													TriviaList(
+														DocumentationCommentExterior("///")),
+													" ",
+													" ",
+													TriviaList()))),
+										XmlElement(
+											XmlElementStartTag(
+												XmlName(Identifier("summary"))),
+											SingletonList<XmlNodeSyntax>(
+												XmlText()
+												.WithTextTokens(
+													TokenList(
+														XmlTextLiteral(
+															TriviaList(),
+															comment,
+															comment,
+															TriviaList())))),
+											XmlElementEndTag(
+												XmlName(Identifier("summary")))),
+										XmlText()
+										.WithTextTokens(
+											TokenList(
+												XmlTextNewLine(
+													TriviaList(),
+													"\n",
+													"\n",
+													TriviaList())))}));
+
+			var newSyntaxToken = member.Modifiers.First().WithLeadingTrivia(TriviaList(Trivia(commentTrivia)));
+			return (T)member.WithModifiers(member.Modifiers.Replace(member.Modifiers.First(), newSyntaxToken));
+		}
 	}
 }
 
