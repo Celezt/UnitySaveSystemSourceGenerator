@@ -8,7 +8,7 @@ namespace Namespace
 {
 	public partial class Test : MonoBehaviour, IIdentifiable
 	{
-		[Save]
+		[Save(Identifier = "new_constant_value")]
 		protected const double CONST_VALUE = double.MaxValue;
 
 		public Guid Guid { get; } = Guid.NewGuid();
@@ -19,7 +19,7 @@ namespace Namespace
 		[Save]
 		public Vector3 Velocity { get; }
 
-		[Save]
+		[Save(SaveSetting.Persistent)]
 		private readonly Vector3 _position;
 
 		[Save]

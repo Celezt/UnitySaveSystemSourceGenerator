@@ -3,10 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using System.Text;
 
 using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
@@ -92,7 +89,7 @@ namespace Celezt.SaveSystem.Generation
 
 		private BlockSyntax CreateSaveContent(SemanticModel semanticModel, SyntaxToken entryKeyToken, List<MemberDeclarationSyntax> memberDeclarations)
 		{
-			var entries = new Dictionary<string, (ISymbol? Get, ISymbol? Set)>();
+			var entries = new Dictionary<string, (ISymbol? Get, ISymbol? Set, AttributeData Attribute)>();
 
 			ExpressionSyntax GetEntryKey() =>
 				InvocationExpression(								// SaveSystem.GetEntryKey({entryKeyToken})
@@ -105,9 +102,14 @@ namespace Celezt.SaveSystem.Generation
 							Argument(
 								IdentifierName(entryKeyToken)))));
 
-			ExpressionSyntax SetSubEntry(ExpressionSyntax expression, string id, ISymbol? getSymbol, ISymbol? setSymbol) =>
+			ExpressionSyntax SetSubEntry(ExpressionSyntax expression, string id, ISymbol? getSymbol, ISymbol? setSymbol, AttributeData attribute) =>
 				InvocationExpression(
-					MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, expression, IdentifierName("SetSubEntry"))
+					MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, expression, IdentifierName((int)attribute.ConstructorArguments[0].Value! switch
+					{
+						0 => "SetSubEntry",             // Default
+						1 => "SetPersistentSubEntry",   // Persistent
+						_ => throw new NotSupportedException($"Raw SaveSetting: {(int)attribute.ConstructorArguments[0].Value!} is not supported"),
+					}))
 						.WithOperatorToken(Token(SyntaxKind.DotToken)))
 						.WithArgumentList(ArgumentList(
 							SeparatedList<ArgumentSyntax>(new Func<List<SyntaxNodeOrToken>>(() =>
@@ -185,11 +187,14 @@ namespace Celezt.SaveSystem.Generation
 					if (!(symbol is IFieldSymbol or IPropertySymbol or IMethodSymbol))
 						throw new NullReferenceException($"{memberDeclaration.GetType()} is not supported declaration");
 
-					string id = symbol switch
+					AttributeData attribute = symbol.GetAttributes().First(x => x.AttributeClass?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) == "global::Celezt.SaveSystem.SaveAttribute");
+					TypedConstant optionalIdentifier = attribute.NamedArguments.FirstOrDefault(x => x.Key == "Identifier").Value;
+					
+					string id = optionalIdentifier.IsNull ? symbol switch
 					{
 						IMethodSymbol => symbol.Name.TrimDecorations("Set", "Get").ToSnakeCase(),
 						_ => symbol.Name.ToSnakeCase(),
-					};
+					} : ((string)optionalIdentifier.Value!).ToSnakeCase();	// Use optional identifier if it is not null.
 
 					switch (symbol) // Get | Save value.
 					{
@@ -199,10 +204,8 @@ namespace Celezt.SaveSystem.Generation
 							entries.TryGetValue(id, out var entry);
 							ISymbol? getSymbol = entry.Get;
 
-							if (getSymbol == null)
-								entries[id] = (symbol, entry.Set);
-							else if (getSymbol != null && Priority(symbol) > Priority(getSymbol))
-								entries[id] = (symbol, entry.Set);
+							if (getSymbol == null || (getSymbol != null && Priority(symbol) > Priority(getSymbol)))
+								entries[id] = (symbol, entry.Set, attribute);
 
 							break;
 					}
@@ -215,10 +218,8 @@ namespace Celezt.SaveSystem.Generation
 							entries.TryGetValue(id, out var entry);
 							ISymbol? setSymbol = entry.Set;
 
-							if (setSymbol == null)
-								entries[id] = (entry.Get, symbol);
-							else if (setSymbol != null && Priority(symbol) > Priority(setSymbol))
-								entries[id] = (entry.Get, symbol);
+							if (setSymbol == null || (setSymbol != null && Priority(symbol) > Priority(setSymbol)))
+								entries[id] = (entry.Get, symbol, attribute);
 
 							break;
 					}
@@ -233,7 +234,7 @@ namespace Celezt.SaveSystem.Generation
 
 			ExpressionSyntax expressionSyntax = GetEntryKey();	// Deepest expression in the tree.
 			foreach (var entry in entries)
-				expressionSyntax = SetSubEntry(expressionSyntax, entry.Key, entry.Value.Get, entry.Value.Set);
+				expressionSyntax = SetSubEntry(expressionSyntax, entry.Key, entry.Value.Get, entry.Value.Set, entry.Value.Attribute);
 
 			return Block(ExpressionStatement(expressionSyntax));
 		}
