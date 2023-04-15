@@ -19,7 +19,7 @@ namespace Namespace
 		[Save]
 		public Vector3 Velocity { get; }
 
-		[Save(SaveSetting.Persistent)]
+		[Save(SaveSettings.Persistent)]
 		private readonly Vector3 _position;
 
 		[Save]

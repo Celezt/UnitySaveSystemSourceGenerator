@@ -4,17 +4,17 @@
 	public class SaveAttribute : Attribute
 	{
 		public string? Identifier { get; set; }
-		public SaveSetting Setting => _setting;
+		public SaveSettings Setting => _setting;
 
-		private SaveSetting _setting;
+		private SaveSettings _setting;
 		
-		public SaveAttribute(SaveSetting setting = SaveSetting.Default) 
+		public SaveAttribute(SaveSettings setting = SaveSettings.Default) 
 		{
 			_setting = setting;
 		}
 	}
 
-	public enum SaveSetting
+	public enum SaveSettings
 	{
 		Default,
 		Persistent,
