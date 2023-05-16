@@ -194,7 +194,7 @@ namespace Celezt.SaveSystem.Generation
 					{
 						IMethodSymbol => symbol.Name.TrimDecorations("Set", "Get").ToSnakeCase(),
 						_ => symbol.Name.ToSnakeCase(),
-					} : ((string)optionalIdentifier.Value!);	// Use optional identifier if it is not null.
+					} : (string)optionalIdentifier.Value!;	// Use optional identifier if it is not null.
 
 					switch (symbol) // Get | Save value.
 					{
